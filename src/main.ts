@@ -1,27 +1,17 @@
 import { parseViewerDoc } from "./parser";
 import { fetchViewerPage, prefetchBoth, pageCache } from "./network";
-import { injectShell, renderPage, applyMode, UI } from "./ui";
+import { injectShell, renderPage, applyMode } from "./ui";
+import type { UIRefs } from "./ui";
 import { log, warn, CONFIG } from "./config";
 
-// Early block before paint
-document.documentElement.style.cssText =
-  "visibility:hidden!important;background:#111!important";
-new MutationObserver((mutations, obs) => {
-  for (const { addedNodes } of mutations)
-    for (const node of addedNodes)
-      if (node.nodeName === "SCRIPT") node.remove();
-  if (
-    document.readyState === "interactive" ||
-    document.readyState === "complete"
-  )
-    obs.disconnect();
-}).observe(document.documentElement, { childList: true, subtree: true });
+document.documentElement.style.cssText = "visibility:hidden!important;background:#111!important";
 
 let pendingNav: string | null = null;
 let isNavigating = false;
 let fitHeight = true;
+let ui: UIRefs;
 
-async function navigateTo(url: string | undefined | null) {
+async function navigateTo(url: string | undefined | null): Promise<void> {
   if (!url) return;
   pendingNav = url;
   if (isNavigating) return;
@@ -32,7 +22,7 @@ async function navigateTo(url: string | undefined | null) {
     isNavigating = true;
     try {
       const data = await fetchViewerPage(target);
-      renderPage(data, fitHeight);
+      renderPage(ui, data, fitHeight);
       prefetchBoth(data);
     } catch (e) {
       warn("navigation failed", target, e);
@@ -42,44 +32,38 @@ async function navigateTo(url: string | undefined | null) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  log("DOMContentLoaded");
+
   const initData = parseViewerDoc(document, location.href);
   pageCache.set(location.href, initData);
 
-  injectShell(initData);
+  ui = injectShell(initData);
   applyMode(fitHeight);
-  renderPage(initData, fitHeight);
+  renderPage(ui, initData, fitHeight);
   prefetchBoth(initData);
 
   document.documentElement.style.cssText = "";
   log("SPA ready");
 
-  // Events
   window.addEventListener("popstate", (e) => {
     const url = e.state?.viewerUrl ?? location.href;
     const data = pageCache.get(url);
     if (data) {
-      renderPage(data, fitHeight);
+      renderPage(ui, data, fitHeight);
       prefetchBoth(data);
     } else navigateTo(url);
   });
 
-  UI.elPrev?.addEventListener("click", () =>
-    navigateTo(UI.elPrev?.dataset.href),
-  );
-  UI.elNext?.addEventListener("click", () =>
-    navigateTo(UI.elNext?.dataset.href),
-  );
+  ui.elPrev.addEventListener("click", () => navigateTo(ui.elPrev.dataset.href));
+  ui.elNext.addEventListener("click", () => navigateTo(ui.elNext.dataset.href));
+
   document.getElementById("hud-fit")?.addEventListener("click", () => {
     fitHeight = !fitHeight;
     applyMode(fitHeight);
   });
 
   document.addEventListener("keydown", (e) => {
-    if (
-      e.target instanceof HTMLInputElement ||
-      e.target instanceof HTMLTextAreaElement
-    )
-      return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     switch (e.key) {
       case "f":
       case "F":
@@ -106,13 +90,13 @@ document.addEventListener("DOMContentLoaded", () => {
       case "d":
       case "D":
         e.preventDefault();
-        navigateTo(UI.elNext?.dataset.href);
+        navigateTo(ui.elNext.dataset.href);
         break;
       case "ArrowLeft":
       case "a":
       case "A":
         e.preventDefault();
-        navigateTo(UI.elPrev?.dataset.href);
+        navigateTo(ui.elPrev.dataset.href);
         break;
     }
   });

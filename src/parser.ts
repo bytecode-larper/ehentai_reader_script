@@ -1,9 +1,6 @@
-import { PageData } from "./types";
+import type { PageData } from "./types";
 
-export function parseViewerDoc(
-  doc: Document | HTMLElement,
-  viewerUrl: string,
-): PageData {
+export function parseViewerDoc(doc: Document | HTMLElement, viewerUrl: string): PageData {
   const [, pageHash = "", galleryId = "", rawNum = "1"] =
     viewerUrl.match(/\/s\/([^/]+)\/(\d+)-(\d+)/) ?? [];
   const pageNum = parseInt(rawNum, 10);
@@ -17,20 +14,18 @@ export function parseViewerDoc(
       ?.getAttribute("onclick")
       ?.match(/nl\((\d+)\)/)?.[1] ?? null;
 
-  const anchors = [
-    ...(doc.querySelectorAll(
-      'a[href*="/s/"]',
-    ) as NodeListOf<HTMLAnchorElement>),
-  ];
+  const anchors = [...(doc.querySelectorAll('a[href*="/s/"]') as NodeListOf<HTMLAnchorElement>)];
   const hrefMatching = (n: number) =>
-    anchors.find((a) => a.href.match(new RegExp(`-(${n})(\\?|$)`)))?.href ??
-    null;
+    anchors.find((a) => a.href.match(new RegExp(`-(${n})(\\?|$)`)))?.href ?? null;
 
-  const nextHref =
-    (hrefMatching(pageNum + 1) ??
-    (doc.querySelector("#i3 a") as HTMLAnchorElement)?.href !== viewerUrl)
-      ? (doc.querySelector("#i3 a") as HTMLAnchorElement)?.href
-      : null;
+  // Fix: previous logic had an operator precedence bug — ?? binds looser than
+  // the ternary, so the #i3 fallback was always evaluated. Explicit check first.
+  const nextHref = (() => {
+    const byNum = hrefMatching(pageNum + 1);
+    if (byNum) return byNum;
+    const i3 = (doc.querySelector("#i3 a") as HTMLAnchorElement | null)?.href;
+    return i3 && i3 !== viewerUrl ? i3 : null;
+  })();
 
   const prevHref =
     pageNum <= 1
@@ -42,22 +37,21 @@ export function parseViewerDoc(
 
   const counterText =
     [...doc.querySelectorAll("div, span, td")]
-      .find((el) => /^\d+ \/ \d+$/.test(el.textContent?.trim() || ""))
+      .find((el) => /^\d+ \/ \d+$/.test(el.textContent?.trim() ?? ""))
       ?.textContent?.trim() ?? `${pageNum} / ?`;
+
   const totalPages = parseInt(counterText.split("/")[1]?.trim() ?? "0", 10);
 
   const fileInfo = (() => {
-    for (const el of doc.querySelector("#i2")?.querySelectorAll("div, span") ??
-      []) {
-      const t = el.textContent?.trim() || "";
-      if (/\d+ x \d+/.test(t) && t.includes("::"))
-        return t.split("\n")[0].trim();
+    for (const el of doc.querySelector("#i2")?.querySelectorAll("div, span") ?? []) {
+      const t = (el.textContent ?? "").trim();
+      if (/\d+ x \d+/.test(t) && t.includes("::")) return (t.split("\n")[0] ?? t).trim();
     }
     return "";
   })();
 
   const galleryHref =
-    (doc.querySelector('a[href*="/g/"]') as HTMLAnchorElement)?.href ?? "#";
+    (doc.querySelector('a[href*="/g/"]') as HTMLAnchorElement | null)?.href ?? "#";
 
   return {
     viewerUrl,

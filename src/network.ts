@@ -1,6 +1,6 @@
 import { CONFIG, log, warn } from "./config";
 import { parseViewerDoc } from "./parser";
-import { PageData } from "./types";
+import type { PageData } from "./types";
 
 export const pageCache = new Map<string, PageData>();
 export const imgCache = new Map<string, HTMLImageElement>();
@@ -9,8 +9,7 @@ let preloadContainer: HTMLDivElement | null = null;
 function ensurePreloadContainer() {
   if (preloadContainer) return;
   preloadContainer = Object.assign(document.createElement("div"), {
-    style:
-      "position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none",
+    style: "position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none",
   });
   document.body.appendChild(preloadContainer);
 }
@@ -22,6 +21,7 @@ export function preloadImage(src: string): HTMLImageElement {
     const oldest = imgCache.keys().next().value as string;
     imgCache.get(oldest)?.remove();
     imgCache.delete(oldest);
+    log("evicted preload", oldest);
   }
 
   ensurePreloadContainer();
@@ -31,27 +31,25 @@ export function preloadImage(src: string): HTMLImageElement {
   img.src = src;
   preloadContainer!.appendChild(img);
   imgCache.set(src, img);
+  log("preloading", src);
   return img;
 }
 
 export async function fetchViewerPage(viewerUrl: string): Promise<PageData> {
-  if (pageCache.has(viewerUrl)) return pageCache.get(viewerUrl)!;
-
+  if (pageCache.has(viewerUrl)) {
+    log("viewer cache hit", viewerUrl);
+    return pageCache.get(viewerUrl)!;
+  }
   log("fetching viewer →", viewerUrl);
   const res = await fetch(viewerUrl, { credentials: "include" });
   const html = await res.text();
-  const data = parseViewerDoc(
-    new DOMParser().parseFromString(html, "text/html"),
-    viewerUrl,
-  );
-
+  const data = parseViewerDoc(new DOMParser().parseFromString(html, "text/html"), viewerUrl);
   pageCache.set(viewerUrl, data);
+  log("cached viewer", viewerUrl, "| img:", data.imgSrc, "| nl:", data.nlToken);
   return data;
 }
 
-export async function fetchNlRetry(
-  pageData: PageData,
-): Promise<PageData | null> {
+export async function fetchNlRetry(pageData: PageData): Promise<PageData | null> {
   if (!pageData.nlToken) return null;
   const retryUrl = `${pageData.viewerUrl.split("?")[0]}?nl=${pageData.nlToken}`;
   log("nl retry →", retryUrl);
@@ -69,18 +67,24 @@ export async function fetchNlRetry(
   }
 }
 
-export async function prefetchBoth(data: PageData) {
-  const prefetchDirection = async (getNext: (d: PageData) => string | null) => {
-    let cur = data;
-    for (let i = 0; i < CONFIG.PREFETCH_COUNT; i++) {
-      const href = getNext(cur);
-      if (!href) break;
-      const nextData = await fetchViewerPage(href).catch(() => null);
-      if (!nextData?.imgSrc) break;
-      preloadImage(nextData.imgSrc);
-      cur = nextData;
-    }
-  };
-  prefetchDirection((d) => d.nextHref);
-  prefetchDirection((d) => d.prevHref);
+async function prefetchDirection(
+  data: PageData,
+  getNext: (d: PageData) => string | null,
+): Promise<void> {
+  let cur = data;
+  for (let i = 0; i < CONFIG.PREFETCH_COUNT; i++) {
+    const href = getNext(cur);
+    if (!href) break;
+    const next = await fetchViewerPage(href).catch(() => null);
+    if (!next?.imgSrc) break;
+    preloadImage(next.imgSrc);
+    cur = next;
+  }
+}
+
+// Run both directions in parallel — no reason to wait for forward before
+// starting backward.
+export function prefetchBoth(data: PageData): void {
+  prefetchDirection(data, (d) => d.nextHref).catch((e) => warn("prefetch forward error", e));
+  prefetchDirection(data, (d) => d.prevHref).catch((e) => warn("prefetch backward error", e));
 }

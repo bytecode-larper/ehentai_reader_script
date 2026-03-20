@@ -3,7 +3,8 @@ node_modules
 
 # output
 out
-dist
+dist/*
+!dist/bundle.js
 *.tgz
 
 # code coverage
