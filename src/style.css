@@ -73,7 +73,6 @@ body.fit-w #main-img {
   right: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
   padding: 8px 14px;
   background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 0%, transparent 100%);
   opacity: 0;
@@ -92,12 +91,8 @@ body:hover #hud {
 #hud-gallery:hover {
   color: #fff;
 }
-#hud-counter {
+.hud-spacer {
   flex: 1;
-  text-align: center;
-  font-size: 13px;
-  color: #999;
-  letter-spacing: 0.04em;
 }
 #hud-fit {
   background: rgba(255, 255, 255, 0.08);
@@ -150,18 +145,34 @@ body:hover #nav-next:not(.disabled):not(.loading) {
   color: rgba(255, 255, 255, 0.9) !important;
 }
 
-#file-info {
+#page-info {
   position: fixed;
-  bottom: 10px;
+  bottom: 12px;
   right: 14px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.25);
-  white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.2s;
   z-index: 10;
 }
-body:hover #file-info {
+body:hover #page-info {
   opacity: 1;
+}
+
+#hud-counter {
+  font-size: 14px;
+  color: #eee;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+#file-info {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }

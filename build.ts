@@ -1,4 +1,6 @@
 import { ESLint } from "eslint";
+import { watch } from "fs";
+import { join } from "path";
 
 const header = `// ==UserScript==
 // @name         E-Hentai Clean Reader
@@ -11,30 +13,74 @@ const header = `// ==UserScript==
 // @run-at       document-start
 // ==/UserScript==\n\n`;
 
-const result = await Bun.build({
-  entrypoints: ["./src/main.ts"],
-  outdir: "./dist",
-  naming: "ehentai_clean_reader.user.js",
-  minify: false, // Keep it false so ESLint has something to work with
-});
+async function build() {
+  const result = await Bun.build({
+    entrypoints: ["./src/main.ts"],
+    outdir: "./dist",
+    naming: "ehentai_clean_reader.user.js",
+    minify: false,
+    target: "browser",
+  });
 
-if (result.success) {
-  const bundlePath = "./dist/ehentai_clean_reader.user.js";
-  let code = await Bun.file(bundlePath).text();
+  if (result.success) {
+    const bundlePath = "./dist/ehentai_clean_reader.user.js";
+    // result.outputs[0] is the primary bundle
+    let code = await result.outputs[0].text();
+    console.log(`[${new Date().toLocaleTimeString()}] 📦 Bundled size: ${code.length} bytes`);
 
-  // Initialize ESLint API
-  const eslint = new ESLint({ fix: true });
+    const eslint = new ESLint({ fix: true });
+    const results = await eslint.lintText(code, { filePath: "src/main.ts" });
+    const formattedCode = results[0]?.output || code;
+    
+    if (results[0]?.output) {
+        console.log(`[${new Date().toLocaleTimeString()}] ✨ ESLint formatted (size: ${formattedCode.length} bytes)`);
+    } else {
+        console.log(`[${new Date().toLocaleTimeString()}] ℹ️ ESLint made no changes`);
+    }
 
-  // Format the bundled code
-  const results = await eslint.lintText(code, { filePath: "src/main.ts" });
+    await Bun.write(bundlePath, header + formattedCode);
+    console.log(`[${new Date().toLocaleTimeString()}] ✅ Build complete.`);
+  } else {
+    console.error("❌ Build failed", result.logs);
+  }
+}
 
-  // Use the fixed output if available, otherwise keep original
-  const formattedCode = results[0]?.output || code;
+// Initial build
+await build();
 
-  // Prepend header and save
-  await Bun.write(bundlePath, header + formattedCode);
+// Handle flags
+const args = process.argv.slice(2);
+const shouldWatch = args.includes("--watch");
+const shouldServe = args.includes("--serve");
 
-  console.log("✅ Build complete: Bundled, ESLint-formatted, and Header added.");
-} else {
-  console.error("❌ Build failed", result.logs);
+if (shouldWatch) {
+  console.log("👀 Watching for changes in src/...");
+  watch(join(import.meta.dir, "src"), { recursive: true }, async (event, filename) => {
+    if (filename) {
+      await build();
+    }
+  });
+}
+
+if (shouldServe) {
+  const port = 8080;
+  Bun.serve({
+    port,
+    fetch(req) {
+      const url = new URL(req.url);
+      if (url.pathname === "/ehentai_clean_reader.user.js") {
+        console.log(
+          `[${new Date().toLocaleTimeString()}] 📦 Serving script to ${req.headers.get("user-agent")?.split(" ")[0]}`,
+        );
+        return new Response(Bun.file("./dist/ehentai_clean_reader.user.js"), {
+          headers: {
+            "Content-Type": "application/javascript",
+            "Access-Control-Allow-Origin": "*",
+          },
+        });
+      }
+      return new Response("Not Found", { status: 404 });
+    },
+  });
+  console.log(`🚀 Server running at http://localhost:${port}/ehentai_clean_reader.user.js`);
 }
