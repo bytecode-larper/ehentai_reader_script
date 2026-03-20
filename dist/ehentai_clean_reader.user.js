@@ -78,7 +78,6 @@ function parseViewerDoc(doc, viewerUrl) {
 const DEFAULT_SETTINGS = {
   fitHeight: true,
   debug: false,
-  smoothScroll: true,
   scrollStep: 220,
   prefetchCount: 2,
   maxNlRetry: 4,
@@ -86,29 +85,23 @@ const DEFAULT_SETTINGS = {
 };
 const SETTINGS = {
   ...DEFAULT_SETTINGS,
-  fitHeight: GM_getValue("fitHeight", DEFAULT_SETTINGS.fitHeight),
+  fitHeight: GM_getValue("defaultFitHeight", DEFAULT_SETTINGS.fitHeight),
   debug: GM_getValue("debug", DEFAULT_SETTINGS.debug),
-  smoothScroll: GM_getValue("smoothScroll", DEFAULT_SETTINGS.smoothScroll),
 };
 const TAG = "[EH-Reader]";
 const log = (...a) => SETTINGS.debug && console.log(TAG, ...a);
 const warn = (...a) => SETTINGS.debug && console.warn(TAG, ...a);
 function registerMenuCommands(onUpdate) {
   GM_registerMenuCommand(
-    `Toggle Fit Mode: ${SETTINGS.fitHeight ? "Fit-Height" : "Natural-Width"}`,
+    `Default Mode: ${SETTINGS.fitHeight ? "Fit-Height" : "Natural-Width"}`,
     () => {
       SETTINGS.fitHeight = !SETTINGS.fitHeight;
-      GM_setValue("fitHeight", SETTINGS.fitHeight);
+      GM_setValue("defaultFitHeight", SETTINGS.fitHeight);
       onUpdate();
       registerMenuCommands(onUpdate);
     }
   );
-  GM_registerMenuCommand(`Toggle Smooth Scroll: ${SETTINGS.smoothScroll ? "ON" : "OFF"}`, () => {
-    SETTINGS.smoothScroll = !SETTINGS.smoothScroll;
-    GM_setValue("smoothScroll", SETTINGS.smoothScroll);
-    registerMenuCommands(onUpdate);
-  });
-  GM_registerMenuCommand(`Toggle Debug Mode: ${SETTINGS.debug ? "ON" : "OFF"}`, () => {
+  GM_registerMenuCommand(`Debug Mode: ${SETTINGS.debug ? "Enabled" : "Disabled"}`, () => {
     SETTINGS.debug = !SETTINGS.debug;
     GM_setValue("debug", SETTINGS.debug);
     location.reload();
@@ -298,7 +291,7 @@ body.fit-w #main-img {
   left: 0;
   right: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   padding: 8px 14px;
   background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 0%, transparent 100%);
   opacity: 0;
@@ -312,7 +305,7 @@ body:hover #hud {
   color: #aaa;
   text-decoration: none;
   font-size: 18px;
-  line-height: 1;
+  line-height: 1.2;
 }
 #hud-gallery:hover {
   color: #fff;
@@ -473,6 +466,7 @@ document.documentElement.style.cssText = "visibility:hidden!important;background
 let pendingNav = null;
 let isNavigating = false;
 let ui;
+let currentFitHeight = SETTINGS.fitHeight;
 async function navigateTo(url) {
   if (!url) {
     return;
@@ -487,7 +481,7 @@ async function navigateTo(url) {
     isNavigating = true;
     try {
       const data = await fetchViewerPage(target);
-      renderPage(ui, data, SETTINGS.fitHeight);
+      renderPage(ui, data, currentFitHeight);
       prefetchBoth(data);
     } catch (e) {
       warn("navigation failed", target, e);
@@ -500,11 +494,11 @@ function init() {
   const initData = parseViewerDoc(document, location.href);
   pageCache.set(location.href, initData);
   ui = injectShell(initData);
-  applyMode(SETTINGS.fitHeight);
-  renderPage(ui, initData, SETTINGS.fitHeight, true);
+  applyMode(currentFitHeight);
+  renderPage(ui, initData, currentFitHeight, true);
   prefetchBoth(initData);
   registerMenuCommands(() => {
-    applyMode(SETTINGS.fitHeight);
+    applyMode(currentFitHeight);
   });
   document.documentElement.style.cssText = "";
   log("SPA ready");
@@ -512,7 +506,7 @@ function init() {
     const url = e.state?.viewerUrl ?? location.href;
     const data = pageCache.get(url);
     if (data) {
-      renderPage(ui, data, SETTINGS.fitHeight);
+      renderPage(ui, data, currentFitHeight);
       prefetchBoth(data);
     } else {
       navigateTo(url);
@@ -527,31 +521,24 @@ function init() {
     const k = e.key.toUpperCase();
     switch (k) {
       case "F":
-        SETTINGS.fitHeight = !SETTINGS.fitHeight;
-        GM_setValue("fitHeight", SETTINGS.fitHeight);
-        applyMode(SETTINGS.fitHeight);
+        currentFitHeight = !currentFitHeight;
+        applyMode(currentFitHeight);
         break;
       case "U":
         location.href = ui.elGallery.href;
         break;
       case "ARROWUP":
       case "W":
-        if (!SETTINGS.fitHeight) {
+        if (!currentFitHeight) {
           e.preventDefault();
-          window.scrollBy({
-            top: -SETTINGS.scrollStep,
-            behavior: SETTINGS.smoothScroll ? "smooth" : "auto",
-          });
+          window.scrollBy(0, -SETTINGS.scrollStep);
         }
         break;
       case "ARROWDOWN":
       case "S":
-        if (!SETTINGS.fitHeight) {
+        if (!currentFitHeight) {
           e.preventDefault();
-          window.scrollBy({
-            top: SETTINGS.scrollStep,
-            behavior: SETTINGS.smoothScroll ? "smooth" : "auto",
-          });
+          window.scrollBy(0, SETTINGS.scrollStep);
         }
         break;
       case "ARROWRIGHT":

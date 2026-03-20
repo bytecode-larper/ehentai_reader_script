@@ -15,7 +15,6 @@ export interface UserSettings {
   // User-facing (Menu)
   fitHeight: boolean;
   debug: boolean;
-  smoothScroll: boolean;
   
   // Tunables (Internal)
   scrollStep: number;

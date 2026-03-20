@@ -10,6 +10,9 @@ let pendingNav: string | null = null;
 let isNavigating = false;
 let ui: UIRefs;
 
+// session state: current mode for this tab/gallery
+let currentFitHeight = SETTINGS.fitHeight;
+
 async function navigateTo(url: string | undefined | null): Promise<void> {
   if (!url) return;
   pendingNav = url;
@@ -21,7 +24,7 @@ async function navigateTo(url: string | undefined | null): Promise<void> {
     isNavigating = true;
     try {
       const data = await fetchViewerPage(target);
-      renderPage(ui, data, SETTINGS.fitHeight);
+      renderPage(ui, data, currentFitHeight);
       prefetchBoth(data);
     } catch (e) {
       warn("navigation failed", target, e);
@@ -37,13 +40,13 @@ function init() {
   pageCache.set(location.href, initData);
 
   ui = injectShell(initData);
-  applyMode(SETTINGS.fitHeight);
-  renderPage(ui, initData, SETTINGS.fitHeight, true);
+  applyMode(currentFitHeight);
+  renderPage(ui, initData, currentFitHeight, true);
   prefetchBoth(initData);
 
-  // Handle menu command updates
+  // Initialize menu commands
   registerMenuCommands(() => {
-    applyMode(SETTINGS.fitHeight);
+    applyMode(currentFitHeight);
   });
 
   // Always clear — even if DOMContentLoaded already fired or was missed
@@ -54,7 +57,7 @@ function init() {
     const url = e.state?.viewerUrl ?? location.href;
     const data = pageCache.get(url);
     if (data) {
-      renderPage(ui, data, SETTINGS.fitHeight);
+      renderPage(ui, data, currentFitHeight);
       prefetchBoth(data);
     } else navigateTo(url);
   });
@@ -68,31 +71,24 @@ function init() {
 
     switch (k) {
       case "F":
-        SETTINGS.fitHeight = !SETTINGS.fitHeight;
-        GM_setValue("fitHeight", SETTINGS.fitHeight);
-        applyMode(SETTINGS.fitHeight);
+        currentFitHeight = !currentFitHeight;
+        applyMode(currentFitHeight);
         break;
       case "U":
         location.href = ui.elGallery.href;
         break;
       case "ARROWUP":
       case "W":
-        if (!SETTINGS.fitHeight) {
+        if (!currentFitHeight) {
           e.preventDefault();
-          window.scrollBy({
-            top: -SETTINGS.scrollStep,
-            behavior: SETTINGS.smoothScroll ? "smooth" : "auto",
-          });
+          window.scrollBy(0, -SETTINGS.scrollStep);
         }
         break;
       case "ARROWDOWN":
       case "S":
-        if (!SETTINGS.fitHeight) {
+        if (!currentFitHeight) {
           e.preventDefault();
-          window.scrollBy({
-            top: SETTINGS.scrollStep,
-            behavior: SETTINGS.smoothScroll ? "smooth" : "auto",
-          });
+          window.scrollBy(0, SETTINGS.scrollStep);
         }
         break;
       case "ARROWRIGHT":
