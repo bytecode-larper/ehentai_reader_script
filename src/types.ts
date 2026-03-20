@@ -2,6 +2,7 @@ export interface PageData {
   viewerUrl: string;
   pageNum: number;
   counterText: string;
+  galleryTitle: string;
   imgSrc: string;
   nextHref: string | null;
   prevHref: string | null;

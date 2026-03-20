@@ -7,6 +7,7 @@ import styles from "./style.css" with { type: "text" };
 // UI element refs — populated by injectShell, exported for main.ts event wiring
 export interface UIRefs {
   elImg: HTMLImageElement;
+  elTitle: HTMLElement;
   elCounter: HTMLElement;
   elFileInfo: HTMLElement;
   elPrev: HTMLElement;
@@ -18,23 +19,34 @@ export function injectShell(initData: PageData): UIRefs {
   document.body.innerHTML = shellHtml.replace('href=""', `href="${initData.galleryHref}"`);
   GM_addStyle(styles);
 
-  // Return concrete refs — callers get typed, non-null elements
-  // (injectShell is always called before any render, so these exist)
-  return {
+  const ui: UIRefs = {
     elImg: document.getElementById("main-img") as HTMLImageElement,
+    elTitle: document.getElementById("hud-title") as HTMLElement,
     elCounter: document.getElementById("hud-counter") as HTMLElement,
     elFileInfo: document.getElementById("file-info") as HTMLElement,
     elPrev: document.getElementById("nav-prev") as HTMLElement,
     elNext: document.getElementById("nav-next") as HTMLElement,
     elGallery: document.getElementById("hud-gallery") as HTMLAnchorElement,
   };
+
+  // Dynamically adjust title width to avoid overlapping the image
+  const updateTitleWidth = () => {
+    const imgWidth = ui.elImg.clientWidth;
+    const viewportWidth = window.innerWidth;
+    const gutter = (viewportWidth - imgWidth) / 2;
+    // Aim for the gutter, but keep a minimum of 200px so it's readable if overlapping
+    ui.elTitle.style.maxWidth = `${Math.max(200, gutter - 30)}px`;
+  };
+
+  new ResizeObserver(updateTitleWidth).observe(document.body);
+  new ResizeObserver(updateTitleWidth).observe(ui.elImg);
+
+  return ui;
 }
 
 export function applyMode(fitHeight: boolean): void {
   document.body.classList.toggle("fit-h", fitHeight);
   document.body.classList.toggle("fit-w", !fitHeight);
-  const btn = document.getElementById("hud-fit");
-  if (btn) btn.textContent = fitHeight ? "fit H" : "natural";
 }
 
 export function displayImage(elImg: HTMLImageElement, pageData: PageData, retryCount = 0): void {
@@ -68,10 +80,10 @@ export function renderPage(
   fitHeight: boolean,
   isInitial = false,
 ): void {
+  ui.elTitle.textContent = data.galleryTitle;
   ui.elCounter.textContent = data.counterText;
   ui.elFileInfo.textContent = data.fileInfo;
   ui.elGallery.href = data.galleryHref;
-  document.title = `${data.counterText} - E-Hentai`;
 
   ui.elPrev.className = data.prevHref ? "" : "disabled";
   ui.elPrev.dataset.href = data.prevHref ?? "";

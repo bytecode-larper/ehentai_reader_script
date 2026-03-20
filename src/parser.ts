@@ -51,10 +51,13 @@ export function parseViewerDoc(doc: Document | HTMLElement, viewerUrl: string): 
   const galleryHref =
     (doc.querySelector('a[href*="/g/"]') as HTMLAnchorElement | null)?.href ?? "#";
 
+  const galleryTitle = doc.querySelector("h1")?.textContent?.trim() ?? "";
+
   return {
     viewerUrl,
     pageNum,
     counterText,
+    galleryTitle,
     imgSrc,
     nextHref,
     prevHref,

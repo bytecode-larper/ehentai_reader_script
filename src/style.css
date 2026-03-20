@@ -94,18 +94,13 @@ body:hover #hud {
 .hud-spacer {
   flex: 1;
 }
-#hud-fit {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #ccc;
-  padding: 3px 9px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-}
-#hud-fit:hover {
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
+#hud-title {
+  font-size: 14px;
+  color: #aaa;
+  font-weight: 500;
+  text-align: right;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  line-height: 1.2;
 }
 
 #nav-prev,
