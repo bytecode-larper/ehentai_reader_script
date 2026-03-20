@@ -24,13 +24,13 @@ const TAG = "[EH-Reader]";
 export const log = (...a: any[]) => SETTINGS.debug && console.log(TAG, ...a);
 export const warn = (...a: any[]) => SETTINGS.debug && console.warn(TAG, ...a);
 
-export function registerMenuCommands(onUpdate: () => void) {
+export function registerMenuCommands(onUpdate: (newFit: boolean) => void) {
   GM_registerMenuCommand(
     `Default Mode: ${SETTINGS.fitHeight ? "Fit-Height" : "Natural-Width"}`,
     () => {
       SETTINGS.fitHeight = !SETTINGS.fitHeight;
       GM_setValue("defaultFitHeight", SETTINGS.fitHeight);
-      onUpdate();
+      onUpdate(SETTINGS.fitHeight);
       registerMenuCommands(onUpdate);
     },
   );

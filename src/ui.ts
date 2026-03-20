@@ -10,9 +10,9 @@ export interface UIRefs {
   elTitle: HTMLElement;
   elCounter: HTMLElement;
   elFileInfo: HTMLElement;
-  elPrev: HTMLElement;
-  elNext: HTMLElement;
   elGallery: HTMLAnchorElement;
+  // Note: Previous and Next navigation elements are removed from DOM, 
+  // but their logic is preserved via full-screen click zones and data-href storage.
 }
 
 export function injectShell(initData: PageData): UIRefs {
@@ -24,8 +24,6 @@ export function injectShell(initData: PageData): UIRefs {
     elTitle: document.getElementById("hud-title") as HTMLElement,
     elCounter: document.getElementById("hud-counter") as HTMLElement,
     elFileInfo: document.getElementById("file-info") as HTMLElement,
-    elPrev: document.getElementById("nav-prev") as HTMLElement,
-    elNext: document.getElementById("nav-next") as HTMLElement,
     elGallery: document.getElementById("hud-gallery") as HTMLAnchorElement,
   };
 
@@ -119,16 +117,18 @@ export function renderPage(
   fitHeight: boolean,
   isInitial = false,
 ): void {
-  log("renderPage data", data);
   ui.elTitle.innerHTML = renderTitle(data.galleryTitle);
   ui.elCounter.textContent = data.counterText;
   ui.elFileInfo.textContent = data.fileInfo;
   ui.elGallery.href = data.galleryHref;
 
-  ui.elPrev.className = data.prevHref ? "" : "disabled";
-  ui.elPrev.dataset.href = data.prevHref ?? "";
-  ui.elNext.className = data.nextHref ? "" : "disabled";
-  ui.elNext.dataset.href = data.nextHref ?? "";
+  // Since elPrev/elNext elements are gone, we use the reader container's 
+  // data attributes to store current nav state for the click listener.
+  const reader = document.getElementById("reader");
+  if (reader) {
+    reader.dataset.prev = data.prevHref ?? "";
+    reader.dataset.next = data.nextHref ?? "";
+  }
 
   displayImage(ui.elImg, data);
   if (!isInitial) history.pushState({ viewerUrl: data.viewerUrl }, "", data.viewerUrl);

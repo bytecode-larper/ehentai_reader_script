@@ -35,7 +35,7 @@ function registerMenuCommands(onUpdate) {
     () => {
       SETTINGS.fitHeight = !SETTINGS.fitHeight;
       GM_setValue("defaultFitHeight", SETTINGS.fitHeight);
-      onUpdate();
+      onUpdate(SETTINGS.fitHeight);
       registerMenuCommands(onUpdate);
     }
   );
@@ -256,8 +256,6 @@ const shell_default = `<div id="reader">
     <div class="hud-spacer"></div>
     <div id="hud-title"></div>
   </div>
-  <span id="nav-prev" class="disabled">&#8592;</span>
-  <span id="nav-next" class="disabled">&#8594;</span>
   <div id="page-info">
     <div id="hud-toast"></div>
     <div id="hud-counter"></div>
@@ -282,6 +280,11 @@ body {
     13px/1 system-ui,
     sans-serif;
   height: 100%;
+}
+
+body.no-cursor, 
+body.no-cursor * {
+  cursor: none !important;
 }
 
 body.fit-h {
@@ -330,10 +333,17 @@ body.fit-w #main-img {
   height: auto;
 }
 
+#reader {
+  cursor: pointer;
+}
+
 #main-img {
   user-select: none;
   -webkit-user-drag: none;
-  cursor: pointer;
+  transition: transform 0.1s ease-out;
+}
+#main-img.no-transition {
+  transition: none !important;
 }
 
 #hud-toast {
@@ -413,7 +423,6 @@ body:hover #hud {
   color: #5588aa;
   font-weight: 600;
 }
-/* Highlight the artist name within a group [Group (Artist)] */
 .meta-artist span {
   color: #77aadd;
   font-weight: 400;
@@ -434,43 +443,6 @@ body:hover #hud {
 .meta-lang {
   color: #8877aa;
   font-weight: 600;
-}
-
-#nav-prev,
-#nav-next {
-  position: fixed;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 28px;
-  color: rgba(255, 255, 255, 0);
-  padding: 20px 16px;
-  transition: color 0.15s;
-  z-index: 10;
-  user-select: none;
-  cursor: pointer;
-}
-#nav-prev {
-  left: 0;
-}
-#nav-next {
-  right: 0;
-}
-#nav-prev.disabled,
-#nav-next.disabled {
-  cursor: default;
-  pointer-events: none;
-}
-#nav-prev.loading,
-#nav-next.loading {
-  color: rgba(255, 255, 255, 0.15) !important;
-}
-body:hover #nav-prev:not(.disabled):not(.loading),
-body:hover #nav-next:not(.disabled):not(.loading) {
-  color: rgba(255, 255, 255, 0.3);
-}
-#nav-prev:not(.disabled):not(.loading):hover,
-#nav-next:not(.disabled):not(.loading):hover {
-  color: rgba(255, 255, 255, 0.9) !important;
 }
 
 #page-info {
@@ -515,8 +487,6 @@ function injectShell(initData) {
     elTitle: document.getElementById("hud-title"),
     elCounter: document.getElementById("hud-counter"),
     elFileInfo: document.getElementById("file-info"),
-    elPrev: document.getElementById("nav-prev"),
-    elNext: document.getElementById("nav-next"),
     elGallery: document.getElementById("hud-gallery"),
   };
   const updateTitleWidth = () => {
@@ -592,15 +562,15 @@ function renderTitle(title) {
   `.trim();
 }
 function renderPage(ui, data, fitHeight, isInitial = false) {
-  log("renderPage data", data);
   ui.elTitle.innerHTML = renderTitle(data.galleryTitle);
   ui.elCounter.textContent = data.counterText;
   ui.elFileInfo.textContent = data.fileInfo;
   ui.elGallery.href = data.galleryHref;
-  ui.elPrev.className = data.prevHref ? "" : "disabled";
-  ui.elPrev.dataset.href = data.prevHref ?? "";
-  ui.elNext.className = data.nextHref ? "" : "disabled";
-  ui.elNext.dataset.href = data.nextHref ?? "";
+  const reader = document.getElementById("reader");
+  if (reader) {
+    reader.dataset.prev = data.prevHref ?? "";
+    reader.dataset.next = data.nextHref ?? "";
+  }
   displayImage(ui.elImg, data);
   if (!isInitial) {
     history.pushState({ viewerUrl: data.viewerUrl }, "", data.viewerUrl);
@@ -617,6 +587,57 @@ let pendingNav = null;
 let isNavigating = false;
 let ui;
 let currentFitHeight = SETTINGS.fitHeight;
+let zoomLevel = 1;
+let zoomSnapTimer = null;
+let panX = 0;
+let panY = 0;
+let isDragging = false;
+let startX = 0;
+let startY = 0;
+let hasMoved = false;
+function updateTransform() {
+  if (ui?.elImg) {
+    const imgWidth = ui.elImg.clientWidth;
+    const imgHeight = ui.elImg.clientHeight;
+    const scaledWidth = imgWidth * zoomLevel;
+    const scaledHeight = imgHeight * zoomLevel;
+    const limitX = Math.max(0, (scaledWidth - window.innerWidth) / 2);
+    const limitY = Math.max(0, (scaledHeight - window.innerHeight) / 2);
+    panX = Math.max(-limitX, Math.min(panX, limitX));
+    panY = Math.max(-limitY, Math.min(panY, limitY));
+    ui.elImg.style.transform =
+      zoomLevel === 1 && panX === 0 && panY === 0
+        ? ""
+        : `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
+  }
+}
+function updateZoom(delta) {
+  if (delta !== null && !currentFitHeight) {
+    return;
+  }
+  if (delta === null) {
+    resetZoom();
+  } else {
+    zoomLevel = Math.max(0.7, Math.min(5, zoomLevel + delta));
+    updateTransform();
+    showToast(`ZOOM: ${Math.round(zoomLevel * 100)}%`);
+  }
+  if (zoomSnapTimer) {
+    window.clearTimeout(zoomSnapTimer);
+  }
+  if (zoomLevel < 1) {
+    zoomSnapTimer = window.setTimeout(() => {
+      resetZoom();
+      showToast("ZOOM: 100%");
+    }, 200);
+  }
+}
+function resetZoom() {
+  zoomLevel = 1;
+  panX = 0;
+  panY = 0;
+  updateTransform();
+}
 async function navigateTo(url) {
   if (!url) {
     return;
@@ -631,6 +652,7 @@ async function navigateTo(url) {
     isNavigating = true;
     try {
       const data = await fetchViewerPage(target);
+      resetZoom();
       renderPage(ui, data, currentFitHeight);
       prefetchBoth(data);
     } catch (e) {
@@ -647,7 +669,11 @@ function init() {
   applyMode(currentFitHeight);
   renderPage(ui, initData, currentFitHeight, true);
   prefetchBoth(initData);
-  registerMenuCommands(() => {
+  registerMenuCommands((newFit) => {
+    currentFitHeight = newFit;
+    if (!currentFitHeight) {
+      updateZoom(null);
+    }
     applyMode(currentFitHeight);
   });
   document.documentElement.style.cssText = "";
@@ -656,47 +682,145 @@ function init() {
     const url = e.state?.viewerUrl ?? location.href;
     const data = pageCache.get(url);
     if (data) {
+      resetZoom();
       renderPage(ui, data, currentFitHeight);
       prefetchBoth(data);
     } else {
       navigateTo(url);
     }
   });
-  ui.elPrev.addEventListener("click", () => navigateTo(ui.elPrev.dataset.href));
-  ui.elNext.addEventListener("click", () => navigateTo(ui.elNext.dataset.href));
-  ui.elImg.addEventListener("click", (e) => {
-    const rect = ui.elImg.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    if (x < rect.width * 0.5) {
-      navigateTo(ui.elPrev.dataset.href);
-    } else {
-      navigateTo(ui.elNext.dataset.href);
+  const reader = document.getElementById("reader");
+  reader?.addEventListener("mousedown", (e) => {
+    if (e.target.closest("#hud, #page-info")) {
+      return;
+    }
+    e.preventDefault();
+    if (zoomLevel > 1) {
+      isDragging = true;
+      hasMoved = false;
+      startX = e.clientX - panX;
+      startY = e.clientY - panY;
+      reader.style.cursor = "grabbing";
+      if (ui?.elImg) {
+        ui.elImg.classList.add("no-transition");
+      }
     }
   });
+  window.addEventListener("mousemove", (e) => {
+    showCursor();
+    if (isDragging) {
+      const newPanX = e.clientX - startX;
+      const newPanY = e.clientY - startY;
+      if (Math.abs(newPanX - panX) > 2 || Math.abs(newPanY - panY) > 2) {
+        hasMoved = true;
+      }
+      panX = newPanX;
+      panY = newPanY;
+      updateTransform();
+    }
+  });
+  window.addEventListener("mouseup", () => {
+    if (isDragging) {
+      isDragging = false;
+      if (reader) {
+        reader.style.cursor = "pointer";
+      }
+      if (ui?.elImg) {
+        ui.elImg.classList.remove("no-transition");
+      }
+    }
+  });
+  reader?.addEventListener("click", (e) => {
+    if (e.target.closest("#hud, #page-info")) {
+      return;
+    }
+    if (hasMoved) {
+      return;
+    }
+    const x = e.clientX;
+    const width = window.innerWidth;
+    if (x < width * 0.4) {
+      navigateTo(reader.dataset.prev);
+    } else {
+      navigateTo(reader.dataset.next);
+    }
+  });
+  let mouseTimer = null;
+  const hideCursor = () => document.body.classList.add("no-cursor");
+  const showCursor = () => {
+    document.body.classList.remove("no-cursor");
+    if (mouseTimer) {
+      window.clearTimeout(mouseTimer);
+    }
+    mouseTimer = window.setTimeout(hideCursor, 3000);
+  };
+  window.addEventListener("mousemove", showCursor);
+  window.addEventListener("mousedown", showCursor);
+  showCursor();
+  window.addEventListener(
+    "wheel",
+    (e) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        updateZoom(e.deltaY < 0 ? 0.1 : -0.1);
+      }
+    },
+    { passive: false }
+  );
   document.addEventListener("keydown", (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
       return;
     }
     const k = e.key.toUpperCase();
+    if (e.ctrlKey) {
+      if (k === "=" || k === "+" || e.key === "+") {
+        e.preventDefault();
+        updateZoom(0.1);
+        return;
+      }
+      if (k === "-" || k === "_" || e.key === "-") {
+        e.preventDefault();
+        updateZoom(-0.1);
+        return;
+      }
+      if (k === "0") {
+        e.preventDefault();
+        updateZoom(null);
+        return;
+      }
+    }
+    if (mouseTimer) {
+      window.clearTimeout(mouseTimer);
+    }
+    mouseTimer = window.setTimeout(hideCursor, 3000);
     switch (k) {
       case "F":
         currentFitHeight = !currentFitHeight;
+        if (!currentFitHeight) {
+          updateZoom(null);
+        }
         applyMode(currentFitHeight);
         showToast(`MODE: ${currentFitHeight ? "FIT HEIGHT" : "NATURAL WIDTH"}`);
         break;
-      case "Q":
+      case "U":
         location.href = ui.elGallery.href;
         break;
       case "ARROWUP":
       case "W":
-        if (!currentFitHeight) {
+        if (currentFitHeight && zoomLevel > 1) {
+          panY += SETTINGS.scrollStep;
+          updateTransform();
+        } else if (!currentFitHeight) {
           e.preventDefault();
           window.scrollBy(0, -SETTINGS.scrollStep);
         }
         break;
       case "ARROWDOWN":
       case "S":
-        if (!currentFitHeight) {
+        if (currentFitHeight && zoomLevel > 1) {
+          panY -= SETTINGS.scrollStep;
+          updateTransform();
+        } else if (!currentFitHeight) {
           e.preventDefault();
           window.scrollBy(0, SETTINGS.scrollStep);
         }
@@ -704,12 +828,12 @@ function init() {
       case "ARROWRIGHT":
       case "D":
         e.preventDefault();
-        navigateTo(ui.elNext.dataset.href);
+        navigateTo(reader?.dataset.next);
         break;
       case "ARROWLEFT":
       case "A":
         e.preventDefault();
-        navigateTo(ui.elPrev.dataset.href);
+        navigateTo(reader?.dataset.prev);
         break;
     }
   });

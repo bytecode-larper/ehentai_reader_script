@@ -15,6 +15,11 @@ body {
   height: 100%;
 }
 
+body.no-cursor, 
+body.no-cursor * {
+  cursor: none !important;
+}
+
 body.fit-h {
   overflow: hidden;
 }
@@ -61,10 +66,17 @@ body.fit-w #main-img {
   height: auto;
 }
 
+#reader {
+  cursor: pointer;
+}
+
 #main-img {
   user-select: none;
   -webkit-user-drag: none;
-  cursor: pointer;
+  transition: transform 0.1s ease-out;
+}
+#main-img.no-transition {
+  transition: none !important;
 }
 
 #hud-toast {
@@ -144,7 +156,6 @@ body:hover #hud {
   color: #5588aa;
   font-weight: 600;
 }
-/* Highlight the artist name within a group [Group (Artist)] */
 .meta-artist span {
   color: #77aadd;
   font-weight: 400;
@@ -165,43 +176,6 @@ body:hover #hud {
 .meta-lang {
   color: #8877aa;
   font-weight: 600;
-}
-
-#nav-prev,
-#nav-next {
-  position: fixed;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 28px;
-  color: rgba(255, 255, 255, 0);
-  padding: 20px 16px;
-  transition: color 0.15s;
-  z-index: 10;
-  user-select: none;
-  cursor: pointer;
-}
-#nav-prev {
-  left: 0;
-}
-#nav-next {
-  right: 0;
-}
-#nav-prev.disabled,
-#nav-next.disabled {
-  cursor: default;
-  pointer-events: none;
-}
-#nav-prev.loading,
-#nav-next.loading {
-  color: rgba(255, 255, 255, 0.15) !important;
-}
-body:hover #nav-prev:not(.disabled):not(.loading),
-body:hover #nav-next:not(.disabled):not(.loading) {
-  color: rgba(255, 255, 255, 0.3);
-}
-#nav-prev:not(.disabled):not(.loading):hover,
-#nav-next:not(.disabled):not(.loading):hover {
-  color: rgba(255, 255, 255, 0.9) !important;
 }
 
 #page-info {
