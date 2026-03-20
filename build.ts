@@ -12,12 +12,12 @@ const header = `// ==UserScript==
 const result = await Bun.build({
   entrypoints: ["./src/main.ts"],
   outdir: "./dist",
-  naming: "bundle.js",
+  naming: "ehentai_clean_reader.user.js",
   minify: false, // Keep it false so ESLint has something to work with
 });
 
 if (result.success) {
-  const bundlePath = "./dist/bundle.js";
+  const bundlePath = "./dist/ehentai_clean_reader.user.js";
   let code = await Bun.file(bundlePath).text();
 
   // Initialize ESLint API
@@ -32,9 +32,7 @@ if (result.success) {
   // Prepend header and save
   await Bun.write(bundlePath, header + formattedCode);
 
-  console.log(
-    "✅ Build complete: Bundled, ESLint-formatted, and Header added.",
-  );
+  console.log("✅ Build complete: Bundled, ESLint-formatted, and Header added.");
 } else {
   console.error("❌ Build failed", result.logs);
 }
