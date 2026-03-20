@@ -1,7 +1,9 @@
 // ==UserScript==
 // @name         E-Hentai Clean Reader
-// @namespace    https://e-hentai.org/
+// @namespace    https://github.com/bytecode-larper/
 // @version      2.3.0
+// @description  A modern, responsive, and customizable viewer for E-Hentai and ExHentai. Features include SPA-style navigation, advanced zooming, auto-hide cursor, and prefetching for a seamless reading experience.
+// @author       bytecode-larper
 // @icon         https://api.iconify.design/ph/book-open-bold.svg
 // @match        https://e-hentai.org/s/*/*
 // @match        https://exhentai.org/s/*/*
@@ -10,6 +12,7 @@
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
 // @run-at       document-start
+// @license      MIT
 // ==/UserScript==
 
 // src/config.ts
