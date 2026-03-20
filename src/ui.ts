@@ -1,6 +1,6 @@
 import type { PageData } from "./types";
 import { imgCache, fetchNlRetry } from "./network";
-import { log, warn, CONFIG } from "./config";
+import { log, warn, SETTINGS } from "./config";
 import shellHtml from "./shell.html" with { type: "text" };
 import styles from "./style.css" with { type: "text" };
 
@@ -64,7 +64,7 @@ export function displayImage(elImg: HTMLImageElement, pageData: PageData, retryC
   elImg.onload = () => log("image displayed", pageData.imgSrc);
   elImg.onerror = async () => {
     warn(`image failed (attempt ${retryCount + 1})`, pageData.imgSrc);
-    if (retryCount >= CONFIG.MAX_NL_RETRY) {
+    if (retryCount >= SETTINGS.maxNlRetry) {
       warn("giving up");
       return;
     }

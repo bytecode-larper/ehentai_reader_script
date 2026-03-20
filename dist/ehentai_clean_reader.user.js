@@ -6,6 +6,9 @@
 // @match        https://e-hentai.org/s/*/*
 // @match        https://exhentai.org/s/*/*
 // @grant        GM_addStyle
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        GM_registerMenuCommand
 // @run-at       document-start
 // ==/UserScript==
 
@@ -72,16 +75,45 @@ function parseViewerDoc(doc, viewerUrl) {
 }
 
 // src/config.ts
-const CONFIG = {
-  DEBUG: true,
-  PREFETCH_COUNT: 2,
-  MAX_NL_RETRY: 4,
-  IMG_CACHE_LIMIT: 20,
-  SCROLL_STEP: 160,
+const DEFAULT_SETTINGS = {
+  fitHeight: true,
+  debug: false,
+  smoothScroll: true,
+  scrollStep: 220,
+  prefetchCount: 2,
+  maxNlRetry: 4,
+  imgCacheLimit: 20,
+};
+const SETTINGS = {
+  ...DEFAULT_SETTINGS,
+  fitHeight: GM_getValue("fitHeight", DEFAULT_SETTINGS.fitHeight),
+  debug: GM_getValue("debug", DEFAULT_SETTINGS.debug),
+  smoothScroll: GM_getValue("smoothScroll", DEFAULT_SETTINGS.smoothScroll),
 };
 const TAG = "[EH-Reader]";
-const log = (...a) => CONFIG.DEBUG && console.log(TAG, ...a);
-const warn = (...a) => CONFIG.DEBUG && console.warn(TAG, ...a);
+const log = (...a) => SETTINGS.debug && console.log(TAG, ...a);
+const warn = (...a) => SETTINGS.debug && console.warn(TAG, ...a);
+function registerMenuCommands(onUpdate) {
+  GM_registerMenuCommand(
+    `Toggle Fit Mode: ${SETTINGS.fitHeight ? "Fit-Height" : "Natural-Width"}`,
+    () => {
+      SETTINGS.fitHeight = !SETTINGS.fitHeight;
+      GM_setValue("fitHeight", SETTINGS.fitHeight);
+      onUpdate();
+      registerMenuCommands(onUpdate);
+    }
+  );
+  GM_registerMenuCommand(`Toggle Smooth Scroll: ${SETTINGS.smoothScroll ? "ON" : "OFF"}`, () => {
+    SETTINGS.smoothScroll = !SETTINGS.smoothScroll;
+    GM_setValue("smoothScroll", SETTINGS.smoothScroll);
+    registerMenuCommands(onUpdate);
+  });
+  GM_registerMenuCommand(`Toggle Debug Mode: ${SETTINGS.debug ? "ON" : "OFF"}`, () => {
+    SETTINGS.debug = !SETTINGS.debug;
+    GM_setValue("debug", SETTINGS.debug);
+    location.reload();
+  });
+}
 
 // src/network.ts
 const PAGE_CACHE_LIMIT = 40;
@@ -101,7 +133,7 @@ function preloadImage(src) {
   if (imgCache.has(src)) {
     return imgCache.get(src);
   }
-  if (imgCache.size >= CONFIG.IMG_CACHE_LIMIT) {
+  if (imgCache.size >= SETTINGS.imgCacheLimit) {
     const oldest = imgCache.keys().next().value;
     imgCache.get(oldest)?.remove();
     imgCache.delete(oldest);
@@ -154,7 +186,7 @@ async function fetchNlRetry(pageData) {
 }
 async function prefetchDirection(data, getNext) {
   let cur = data;
-  for (let i = 0; i < CONFIG.PREFETCH_COUNT; i++) {
+  for (let i = 0; i < SETTINGS.prefetchCount; i++) {
     const href = getNext(cur);
     if (!href) {
       break;
@@ -406,7 +438,7 @@ function displayImage(elImg, pageData, retryCount = 0) {
   elImg.onload = () => log("image displayed", pageData.imgSrc);
   elImg.onerror = async () => {
     warn(`image failed (attempt ${retryCount + 1})`, pageData.imgSrc);
-    if (retryCount >= CONFIG.MAX_NL_RETRY) {
+    if (retryCount >= SETTINGS.maxNlRetry) {
       warn("giving up");
       return;
     }
@@ -440,7 +472,6 @@ function renderPage(ui, data, fitHeight, isInitial = false) {
 document.documentElement.style.cssText = "visibility:hidden!important;background:#111!important";
 let pendingNav = null;
 let isNavigating = false;
-let fitHeight = true;
 let ui;
 async function navigateTo(url) {
   if (!url) {
@@ -456,7 +487,7 @@ async function navigateTo(url) {
     isNavigating = true;
     try {
       const data = await fetchViewerPage(target);
-      renderPage(ui, data, fitHeight);
+      renderPage(ui, data, SETTINGS.fitHeight);
       prefetchBoth(data);
     } catch (e) {
       warn("navigation failed", target, e);
@@ -469,16 +500,19 @@ function init() {
   const initData = parseViewerDoc(document, location.href);
   pageCache.set(location.href, initData);
   ui = injectShell(initData);
-  applyMode(fitHeight);
-  renderPage(ui, initData, fitHeight, true);
+  applyMode(SETTINGS.fitHeight);
+  renderPage(ui, initData, SETTINGS.fitHeight, true);
   prefetchBoth(initData);
+  registerMenuCommands(() => {
+    applyMode(SETTINGS.fitHeight);
+  });
   document.documentElement.style.cssText = "";
   log("SPA ready");
   window.addEventListener("popstate", (e) => {
     const url = e.state?.viewerUrl ?? location.href;
     const data = pageCache.get(url);
     if (data) {
-      renderPage(ui, data, fitHeight);
+      renderPage(ui, data, SETTINGS.fitHeight);
       prefetchBoth(data);
     } else {
       navigateTo(url);
@@ -486,44 +520,46 @@ function init() {
   });
   ui.elPrev.addEventListener("click", () => navigateTo(ui.elPrev.dataset.href));
   ui.elNext.addEventListener("click", () => navigateTo(ui.elNext.dataset.href));
-  document.getElementById("hud-fit")?.addEventListener("click", () => {
-    fitHeight = !fitHeight;
-    applyMode(fitHeight);
-  });
   document.addEventListener("keydown", (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
       return;
     }
-    switch (e.key) {
-      case "f":
+    const k = e.key.toUpperCase();
+    switch (k) {
       case "F":
-        fitHeight = !fitHeight;
-        applyMode(fitHeight);
+        SETTINGS.fitHeight = !SETTINGS.fitHeight;
+        GM_setValue("fitHeight", SETTINGS.fitHeight);
+        applyMode(SETTINGS.fitHeight);
         break;
-      case "ArrowUp":
-      case "w":
+      case "U":
+        location.href = ui.elGallery.href;
+        break;
+      case "ARROWUP":
       case "W":
-        if (!fitHeight) {
+        if (!SETTINGS.fitHeight) {
           e.preventDefault();
-          window.scrollBy({ top: -CONFIG.SCROLL_STEP, behavior: "smooth" });
+          window.scrollBy({
+            top: -SETTINGS.scrollStep,
+            behavior: SETTINGS.smoothScroll ? "smooth" : "auto",
+          });
         }
         break;
-      case "ArrowDown":
-      case "s":
+      case "ARROWDOWN":
       case "S":
-        if (!fitHeight) {
+        if (!SETTINGS.fitHeight) {
           e.preventDefault();
-          window.scrollBy({ top: CONFIG.SCROLL_STEP, behavior: "smooth" });
+          window.scrollBy({
+            top: SETTINGS.scrollStep,
+            behavior: SETTINGS.smoothScroll ? "smooth" : "auto",
+          });
         }
         break;
-      case "ArrowRight":
-      case "d":
+      case "ARROWRIGHT":
       case "D":
         e.preventDefault();
         navigateTo(ui.elNext.dataset.href);
         break;
-      case "ArrowLeft":
-      case "a":
+      case "ARROWLEFT":
       case "A":
         e.preventDefault();
         navigateTo(ui.elPrev.dataset.href);

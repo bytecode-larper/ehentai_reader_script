@@ -10,3 +10,16 @@ export interface PageData {
   galleryHref: string;
   nlToken: string | null;
 }
+
+export interface UserSettings {
+  // User-facing (Menu)
+  fitHeight: boolean;
+  debug: boolean;
+  smoothScroll: boolean;
+  
+  // Tunables (Internal)
+  scrollStep: number;
+  prefetchCount: number;
+  maxNlRetry: number;
+  imgCacheLimit: number;
+}

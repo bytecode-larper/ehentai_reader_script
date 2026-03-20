@@ -10,6 +10,9 @@ const header = `// ==UserScript==
 // @match        https://e-hentai.org/s/*/*
 // @match        https://exhentai.org/s/*/*
 // @grant        GM_addStyle
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        GM_registerMenuCommand
 // @run-at       document-start
 // ==/UserScript==\n\n`;
 

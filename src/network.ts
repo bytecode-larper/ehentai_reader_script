@@ -1,4 +1,4 @@
-import { CONFIG, log, warn } from "./config";
+import { log, warn, SETTINGS } from "./config";
 import { parseViewerDoc } from "./parser";
 import type { PageData } from "./types";
 
@@ -19,7 +19,7 @@ function ensurePreloadContainer() {
 export function preloadImage(src: string): HTMLImageElement {
   if (imgCache.has(src)) return imgCache.get(src)!;
 
-  if (imgCache.size >= CONFIG.IMG_CACHE_LIMIT) {
+  if (imgCache.size >= SETTINGS.imgCacheLimit) {
     const oldest = imgCache.keys().next().value as string;
     imgCache.get(oldest)?.remove();
     imgCache.delete(oldest);
@@ -77,7 +77,7 @@ async function prefetchDirection(
   getNext: (d: PageData) => string | null,
 ): Promise<void> {
   let cur = data;
-  for (let i = 0; i < CONFIG.PREFETCH_COUNT; i++) {
+  for (let i = 0; i < SETTINGS.prefetchCount; i++) {
     const href = getNext(cur);
     if (!href) break;
     const next = await fetchViewerPage(href).catch(() => null);
