@@ -64,6 +64,23 @@ body.fit-w #main-img {
 #main-img {
   user-select: none;
   -webkit-user-drag: none;
+  cursor: pointer;
+}
+
+#hud-toast {
+  font-size: 11px;
+  color: #ffaa00;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: all 0.2s ease-out;
+}
+#hud-toast.show {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 #hud {
@@ -95,12 +112,59 @@ body:hover #hud {
   flex: 1;
 }
 #hud-title {
-  font-size: 14px;
-  color: #aaa;
-  font-weight: 500;
+  font-size: 11px;
+  color: #777;
   text-align: right;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  line-height: 1.2;
+  line-height: 1.35;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+}
+.title-main {
+  margin: 2px 0;
+}
+.title-primary {
+  font-size: 16px;
+  color: #eee;
+  font-weight: 600;
+}
+.title-secondary {
+  font-size: 15px;
+  color: #aaa;
+  font-weight: 400;
+}
+.title-sep {
+  color: #555;
+  margin: 0 2px;
+}
+.meta-item {
+  display: inline-block;
+  margin-left: 4px;
+}
+.meta-artist {
+  color: #5588aa;
+  font-weight: 600;
+}
+/* Highlight the artist name within a group [Group (Artist)] */
+.meta-artist span {
+  color: #77aadd;
+  font-weight: 400;
+}
+.meta-event {
+  color: #aa8855;
+}
+.meta-anthology {
+  color: #cc6699;
+  font-weight: 600;
+}
+.meta-parody {
+  color: #55aa66;
+}
+.meta-tag {
+  color: #888;
+}
+.meta-lang {
+  color: #8877aa;
+  font-weight: 600;
 }
 
 #nav-prev,

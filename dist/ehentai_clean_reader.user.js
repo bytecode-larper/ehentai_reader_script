@@ -12,6 +12,40 @@
 // @run-at       document-start
 // ==/UserScript==
 
+// src/config.ts
+const DEFAULT_SETTINGS = {
+  fitHeight: true,
+  debug: true,
+  scrollStep: 220,
+  prefetchCount: 2,
+  maxNlRetry: 4,
+  imgCacheLimit: 20,
+};
+const SETTINGS = {
+  ...DEFAULT_SETTINGS,
+  fitHeight: GM_getValue("defaultFitHeight", DEFAULT_SETTINGS.fitHeight),
+  debug: GM_getValue("debug", DEFAULT_SETTINGS.debug),
+};
+const TAG = "[EH-Reader]";
+const log = (...a) => SETTINGS.debug && console.log(TAG, ...a);
+const warn = (...a) => SETTINGS.debug && console.warn(TAG, ...a);
+function registerMenuCommands(onUpdate) {
+  GM_registerMenuCommand(
+    `Default Mode: ${SETTINGS.fitHeight ? "Fit-Height" : "Natural-Width"}`,
+    () => {
+      SETTINGS.fitHeight = !SETTINGS.fitHeight;
+      GM_setValue("defaultFitHeight", SETTINGS.fitHeight);
+      onUpdate();
+      registerMenuCommands(onUpdate);
+    }
+  );
+  GM_registerMenuCommand(`Debug Mode: ${SETTINGS.debug ? "Enabled" : "Disabled"}`, () => {
+    SETTINGS.debug = !SETTINGS.debug;
+    GM_setValue("debug", SETTINGS.debug);
+    location.reload();
+  });
+}
+
 // src/parser.ts
 function parseViewerDoc(doc, viewerUrl) {
   const [, pageHash = "", galleryId = "", rawNum = "1"] =
@@ -59,12 +93,15 @@ function parseViewerDoc(doc, viewerUrl) {
     return "";
   })();
   const galleryHref = doc.querySelector('a[href*="/g/"]')?.href ?? "#";
-  const galleryTitle = doc.querySelector("h1")?.textContent?.trim() ?? "";
+  const galleryTitleElement = doc.querySelector("h1");
+  const galleryTitle = galleryTitleElement?.textContent?.trim() ?? "Untitled";
+  const parsedTitle = parseTitle(galleryTitle);
+  log("parsedTitle", galleryTitle, parsedTitle);
   return {
     viewerUrl,
     pageNum,
     counterText,
-    galleryTitle,
+    galleryTitle: parsedTitle,
     imgSrc,
     nextHref,
     prevHref,
@@ -73,39 +110,49 @@ function parseViewerDoc(doc, viewerUrl) {
     nlToken,
   };
 }
-
-// src/config.ts
-const DEFAULT_SETTINGS = {
-  fitHeight: true,
-  debug: false,
-  scrollStep: 220,
-  prefetchCount: 2,
-  maxNlRetry: 4,
-  imgCacheLimit: 20,
-};
-const SETTINGS = {
-  ...DEFAULT_SETTINGS,
-  fitHeight: GM_getValue("defaultFitHeight", DEFAULT_SETTINGS.fitHeight),
-  debug: GM_getValue("debug", DEFAULT_SETTINGS.debug),
-};
-const TAG = "[EH-Reader]";
-const log = (...a) => SETTINGS.debug && console.log(TAG, ...a);
-const warn = (...a) => SETTINGS.debug && console.warn(TAG, ...a);
-function registerMenuCommands(onUpdate) {
-  GM_registerMenuCommand(
-    `Default Mode: ${SETTINGS.fitHeight ? "Fit-Height" : "Natural-Width"}`,
-    () => {
-      SETTINGS.fitHeight = !SETTINGS.fitHeight;
-      GM_setValue("defaultFitHeight", SETTINGS.fitHeight);
-      onUpdate();
-      registerMenuCommands(onUpdate);
+function parseTitle(raw) {
+  let text = raw.trim();
+  const leading = [];
+  const trailing = [];
+  const langRegex =
+    /\[(English|Japanese|Chinese|Korean|Thai|Vietnamese|French|German|Italian|Portuguese|Russian|Spanish)/i;
+  while (true) {
+    const match = text.match(/^(\([^)]+\)|\[[^\]]+\])\s*/);
+    if (!match || !match[1]) {
+      break;
     }
-  );
-  GM_registerMenuCommand(`Debug Mode: ${SETTINGS.debug ? "Enabled" : "Disabled"}`, () => {
-    SETTINGS.debug = !SETTINGS.debug;
-    GM_setValue("debug", SETTINGS.debug);
-    location.reload();
-  });
+    const m = match[1];
+    let type = "artist";
+    if (m.startsWith("(")) {
+      type = "event";
+    } else if (m.toLowerCase().includes("anthology")) {
+      type = "anthology";
+    }
+    leading.push({ text: m, type });
+    text = text.slice(match[0].length).trim();
+  }
+  while (true) {
+    const match = text.match(/\s*(\([^)]+\)|\[[^\]]+\])$/);
+    if (!match || !match[1]) {
+      break;
+    }
+    const m = match[1];
+    let type = "tag";
+    if (m.startsWith("(")) {
+      type = "parody";
+    } else if (langRegex.test(m)) {
+      type = "lang";
+    }
+    trailing.unshift({ text: m, type });
+    text = text.slice(0, -match[0].length).trim();
+  }
+  const parts = text.split(/\s*\|\s*/);
+  return {
+    leading,
+    primary: parts[0] || "Untitled",
+    secondary: parts[1] || null,
+    trailing,
+  };
 }
 
 // src/network.ts
@@ -134,7 +181,9 @@ function preloadImage(src) {
   }
   ensurePreloadContainer();
   const img = document.createElement("img");
-  img.onload = () => log("preload done", src);
+  img.onload = () => {
+    img.decode().then(() => log("preload + decode done", src));
+  };
   img.onerror = () => warn("preload error", src);
   img.src = src;
   preloadContainer.appendChild(img);
@@ -210,6 +259,7 @@ const shell_default = `<div id="reader">
   <span id="nav-prev" class="disabled">&#8592;</span>
   <span id="nav-next" class="disabled">&#8594;</span>
   <div id="page-info">
+    <div id="hud-toast"></div>
     <div id="hud-counter"></div>
     <div id="file-info"></div>
   </div>
@@ -283,6 +333,23 @@ body.fit-w #main-img {
 #main-img {
   user-select: none;
   -webkit-user-drag: none;
+  cursor: pointer;
+}
+
+#hud-toast {
+  font-size: 11px;
+  color: #ffaa00;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: all 0.2s ease-out;
+}
+#hud-toast.show {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 #hud {
@@ -314,12 +381,59 @@ body:hover #hud {
   flex: 1;
 }
 #hud-title {
-  font-size: 14px;
-  color: #aaa;
-  font-weight: 500;
+  font-size: 11px;
+  color: #777;
   text-align: right;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  line-height: 1.2;
+  line-height: 1.35;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+}
+.title-main {
+  margin: 2px 0;
+}
+.title-primary {
+  font-size: 16px;
+  color: #eee;
+  font-weight: 600;
+}
+.title-secondary {
+  font-size: 15px;
+  color: #aaa;
+  font-weight: 400;
+}
+.title-sep {
+  color: #555;
+  margin: 0 2px;
+}
+.meta-item {
+  display: inline-block;
+  margin-left: 4px;
+}
+.meta-artist {
+  color: #5588aa;
+  font-weight: 600;
+}
+/* Highlight the artist name within a group [Group (Artist)] */
+.meta-artist span {
+  color: #77aadd;
+  font-weight: 400;
+}
+.meta-event {
+  color: #aa8855;
+}
+.meta-anthology {
+  color: #cc6699;
+  font-weight: 600;
+}
+.meta-parody {
+  color: #55aa66;
+}
+.meta-tag {
+  color: #888;
+}
+.meta-lang {
+  color: #8877aa;
+  font-weight: 600;
 }
 
 #nav-prev,
@@ -419,6 +533,21 @@ function applyMode(fitHeight) {
   document.body.classList.toggle("fit-h", fitHeight);
   document.body.classList.toggle("fit-w", !fitHeight);
 }
+let toastTimer = null;
+function showToast(text) {
+  const el = document.getElementById("hud-toast");
+  if (!el) {
+    return;
+  }
+  el.textContent = text;
+  el.classList.add("show");
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+  }
+  toastTimer = window.setTimeout(() => {
+    el.classList.remove("show");
+  }, 1200);
+}
 function displayImage(elImg, pageData, retryCount = 0) {
   elImg.onload = null;
   elImg.onerror = null;
@@ -442,8 +571,29 @@ function displayImage(elImg, pageData, retryCount = 0) {
   };
   elImg.src = pageData.imgSrc;
 }
+function renderTitle(title) {
+  const formatMeta = (m) => {
+    let content = m.text;
+    if (m.type === "artist") {
+      content = content.replace(/\(([^)]+)\)/, "<span>($1)</span>");
+    }
+    return `<span class="meta-item meta-${m.type}">${content}</span>`;
+  };
+  const leading = title.leading.map(formatMeta).join("");
+  const trailing = title.trailing.map(formatMeta).join("");
+  const main = `<span class="title-primary">${title.primary}</span>`;
+  const sub = title.secondary
+    ? `<span class="title-sep"> | </span><span class="title-secondary">${title.secondary}</span>`
+    : "";
+  return `
+    <div class="title-meta-wrap leading">${leading}</div>
+    <div class="title-main">${main}${sub}</div>
+    <div class="title-meta-wrap trailing">${trailing}</div>
+  `.trim();
+}
 function renderPage(ui, data, fitHeight, isInitial = false) {
-  ui.elTitle.textContent = data.galleryTitle;
+  log("renderPage data", data);
+  ui.elTitle.innerHTML = renderTitle(data.galleryTitle);
   ui.elCounter.textContent = data.counterText;
   ui.elFileInfo.textContent = data.fileInfo;
   ui.elGallery.href = data.galleryHref;
@@ -514,6 +664,15 @@ function init() {
   });
   ui.elPrev.addEventListener("click", () => navigateTo(ui.elPrev.dataset.href));
   ui.elNext.addEventListener("click", () => navigateTo(ui.elNext.dataset.href));
+  ui.elImg.addEventListener("click", (e) => {
+    const rect = ui.elImg.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    if (x < rect.width * 0.5) {
+      navigateTo(ui.elPrev.dataset.href);
+    } else {
+      navigateTo(ui.elNext.dataset.href);
+    }
+  });
   document.addEventListener("keydown", (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
       return;
@@ -523,8 +682,9 @@ function init() {
       case "F":
         currentFitHeight = !currentFitHeight;
         applyMode(currentFitHeight);
+        showToast(`MODE: ${currentFitHeight ? "FIT HEIGHT" : "NATURAL WIDTH"}`);
         break;
-      case "U":
+      case "Q":
         location.href = ui.elGallery.href;
         break;
       case "ARROWUP":

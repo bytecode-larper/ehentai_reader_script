@@ -28,7 +28,9 @@ export function preloadImage(src: string): HTMLImageElement {
 
   ensurePreloadContainer();
   const img = document.createElement("img");
-  img.onload = () => log("preload done", src);
+  img.onload = () => {
+    img.decode().then(() => log("preload + decode done", src));
+  };
   img.onerror = () => warn("preload error", src);
   img.src = src;
   preloadContainer!.appendChild(img);

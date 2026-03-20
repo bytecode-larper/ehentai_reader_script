@@ -1,6 +1,6 @@
 import { parseViewerDoc } from "./parser";
 import { fetchViewerPage, prefetchBoth, pageCache } from "./network";
-import { injectShell, renderPage, applyMode } from "./ui";
+import { injectShell, renderPage, applyMode, showToast } from "./ui";
 import type { UIRefs } from "./ui";
 import { log, warn, SETTINGS, registerMenuCommands } from "./config";
 
@@ -65,6 +65,17 @@ function init() {
   ui.elPrev.addEventListener("click", () => navigateTo(ui.elPrev.dataset.href));
   ui.elNext.addEventListener("click", () => navigateTo(ui.elNext.dataset.href));
 
+  // Click-to-navigate on main image
+  ui.elImg.addEventListener("click", (e) => {
+    const rect = ui.elImg.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    if (x < rect.width * 0.5) {
+      navigateTo(ui.elPrev.dataset.href);
+    } else {
+      navigateTo(ui.elNext.dataset.href);
+    }
+  });
+
   document.addEventListener("keydown", (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     const k = e.key.toUpperCase();
@@ -73,8 +84,9 @@ function init() {
       case "F":
         currentFitHeight = !currentFitHeight;
         applyMode(currentFitHeight);
+        showToast(`MODE: ${currentFitHeight ? "FIT HEIGHT" : "NATURAL WIDTH"}`);
         break;
-      case "U":
+      case "Q":
         location.href = ui.elGallery.href;
         break;
       case "ARROWUP":

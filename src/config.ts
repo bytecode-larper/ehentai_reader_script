@@ -4,7 +4,7 @@ import type { UserSettings } from "./types";
 const DEFAULT_SETTINGS: UserSettings = {
   // User-facing (Menu Preferences)
   fitHeight: true, // This is the "Default" for new loads
-  debug: false,
+  debug: true,
 
   // Tunables (Internal)
   scrollStep: 220,

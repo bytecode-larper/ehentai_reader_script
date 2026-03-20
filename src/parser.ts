@@ -1,4 +1,5 @@
-import type { PageData } from "./types";
+import { log } from "./config";
+import type { PageData, ParsedTitle, TitleMetadata } from "./types";
 
 export function parseViewerDoc(doc: Document | HTMLElement, viewerUrl: string): PageData {
   const [, pageHash = "", galleryId = "", rawNum = "1"] =
@@ -51,18 +52,77 @@ export function parseViewerDoc(doc: Document | HTMLElement, viewerUrl: string): 
   const galleryHref =
     (doc.querySelector('a[href*="/g/"]') as HTMLAnchorElement | null)?.href ?? "#";
 
-  const galleryTitle = doc.querySelector("h1")?.textContent?.trim() ?? "";
+  const galleryTitleElement = doc.querySelector("h1");
+  const galleryTitle = galleryTitleElement?.textContent?.trim() ?? "Untitled";
+  const parsedTitle = parseTitle(galleryTitle);
+  log("parsedTitle", galleryTitle, parsedTitle);
 
   return {
     viewerUrl,
     pageNum,
     counterText,
-    galleryTitle,
+    galleryTitle: parsedTitle,
     imgSrc,
     nextHref,
     prevHref,
     fileInfo,
     galleryHref,
     nlToken,
+  };
+}
+
+/**
+ * Parses E-Hentai format into structured data
+ */
+function parseTitle(raw: string): ParsedTitle {
+  let text = raw.trim();
+  const leading: TitleMetadata[] = [];
+  const trailing: TitleMetadata[] = [];
+
+  // Known language indicators (Commonly used at the end)
+  const langRegex = /\[(English|Japanese|Chinese|Korean|Thai|Vietnamese|French|German|Italian|Portuguese|Russian|Spanish)/i;
+
+  // 1. Leading metadata
+  while (true) {
+    const match = text.match(/^(\([^)]+\)|\[[^\]]+\])\s*/);
+    if (!match || !match[1]) break;
+    const m = match[1];
+    
+    let type: TitleMetadata["type"] = "artist";
+    if (m.startsWith("(")) {
+      type = "event";
+    } else if (m.toLowerCase().includes("anthology")) {
+      type = "anthology";
+    }
+
+    leading.push({ text: m, type });
+    text = text.slice(match[0].length).trim();
+  }
+
+  // 2. Trailing metadata
+  while (true) {
+    const match = text.match(/\s*(\([^)]+\)|\[[^\]]+\])$/);
+    if (!match || !match[1]) break;
+    const m = match[1];
+
+    let type: TitleMetadata["type"] = "tag";
+    if (m.startsWith("(")) {
+      type = "parody";
+    } else if (langRegex.test(m)) {
+      type = "lang";
+    }
+
+    trailing.unshift({ text: m, type });
+    text = text.slice(0, -match[0].length).trim();
+  }
+
+  // 3. Split primary/secondary
+  const parts = text.split(/\s*\|\s*/);
+  
+  return {
+    leading,
+    primary: parts[0] || "Untitled",
+    secondary: parts[1] || null,
+    trailing,
   };
 }

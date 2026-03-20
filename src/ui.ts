@@ -1,4 +1,4 @@
-import type { PageData } from "./types";
+import type { PageData, ParsedTitle } from "./types";
 import { imgCache, fetchNlRetry } from "./network";
 import { log, warn, SETTINGS } from "./config";
 import shellHtml from "./shell.html" with { type: "text" };
@@ -49,6 +49,20 @@ export function applyMode(fitHeight: boolean): void {
   document.body.classList.toggle("fit-w", !fitHeight);
 }
 
+let toastTimer: number | null = null;
+export function showToast(text: string): void {
+  const el = document.getElementById("hud-toast");
+  if (!el) return;
+  
+  el.textContent = text;
+  el.classList.add("show");
+
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => {
+    el.classList.remove("show");
+  }, 1200);
+}
+
 export function displayImage(elImg: HTMLImageElement, pageData: PageData, retryCount = 0): void {
   elImg.onload = null;
   elImg.onerror = null;
@@ -74,13 +88,39 @@ export function displayImage(elImg: HTMLImageElement, pageData: PageData, retryC
   elImg.src = pageData.imgSrc;
 }
 
+function renderTitle(title: ParsedTitle): string {
+  const formatMeta = (m: { text: string; type: string }) => {
+    let content = m.text;
+    // Highlight (Artist) within [Group (Artist)]
+    if (m.type === "artist") {
+      content = content.replace(/\(([^)]+)\)/, "<span>($1)</span>");
+    }
+    return `<span class="meta-item meta-${m.type}">${content}</span>`;
+  };
+
+  const leading = title.leading.map(formatMeta).join("");
+  const trailing = title.trailing.map(formatMeta).join("");
+
+  const main = `<span class="title-primary">${title.primary}</span>`;
+  const sub = title.secondary
+    ? `<span class="title-sep"> | </span><span class="title-secondary">${title.secondary}</span>`
+    : "";
+
+  return `
+    <div class="title-meta-wrap leading">${leading}</div>
+    <div class="title-main">${main}${sub}</div>
+    <div class="title-meta-wrap trailing">${trailing}</div>
+  `.trim();
+}
+
 export function renderPage(
   ui: UIRefs,
   data: PageData,
   fitHeight: boolean,
   isInitial = false,
 ): void {
-  ui.elTitle.textContent = data.galleryTitle;
+  log("renderPage data", data);
+  ui.elTitle.innerHTML = renderTitle(data.galleryTitle);
   ui.elCounter.textContent = data.counterText;
   ui.elFileInfo.textContent = data.fileInfo;
   ui.elGallery.href = data.galleryHref;
