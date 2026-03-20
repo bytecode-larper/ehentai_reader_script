@@ -169,187 +169,187 @@ function prefetchBoth(data) {
 }
 
 // src/shell.html
-const shell_default = `<div id="reader">
-  <span id="img-wrap"><img id="main-img" src="" alt="" /></span>
-  <div id="hud">
-    <a id="hud-gallery" href="" title="Back to gallery">&#8617;</a>
-    <span id="hud-counter"></span>
-    <button id="hud-fit" title="Toggle fit (F)">fit&nbsp;H</button>
-  </div>
-  <span id="nav-prev" class="disabled">&#8592;</span>
-  <span id="nav-next" class="disabled">&#8594;</span>
-  <div id="file-info"></div>
-</div>
+const shell_default = `<div id="reader">\r
+  <span id="img-wrap"><img id="main-img" src="" alt="" /></span>\r
+  <div id="hud">\r
+    <a id="hud-gallery" href="" title="Back to gallery">&#8617;</a>\r
+    <span id="hud-counter"></span>\r
+    <button id="hud-fit" title="Toggle fit (F)">fit&nbsp;H</button>\r
+  </div>\r
+  <span id="nav-prev" class="disabled">&#8592;</span>\r
+  <span id="nav-next" class="disabled">&#8594;</span>\r
+  <div id="file-info"></div>\r
+</div>\r
 `;
 
 // src/style.css
-const style_default = `*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-html,
-body {
-  background: #111;
-  color: #ccc;
-  font:
-    13px/1 system-ui,
-    sans-serif;
-  height: 100%;
-}
-
-body.fit-h {
-  overflow: hidden;
-}
-body.fit-h #reader {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-}
-body.fit-h #img-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-body.fit-h #main-img {
-  max-height: 100vh;
-  max-width: 100vw;
-  width: auto;
-  height: 100vh;
-  object-fit: contain;
-}
-
-body.fit-w {
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-body.fit-w #reader {
-  position: relative;
-  min-height: 100vh;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  width: 100%;
-}
-body.fit-w #img-wrap {
-  display: block;
-}
-body.fit-w #main-img {
-  display: block;
-  max-width: 100vw;
-  height: auto;
-}
-
-#main-img {
-  user-select: none;
-  -webkit-user-drag: none;
-}
-
-#hud {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 14px;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 0%, transparent 100%);
-  opacity: 0;
-  transition: opacity 0.2s;
-  z-index: 10;
-}
-body:hover #hud {
-  opacity: 1;
-}
-#hud-gallery {
-  color: #aaa;
-  text-decoration: none;
-  font-size: 18px;
-  line-height: 1;
-}
-#hud-gallery:hover {
-  color: #fff;
-}
-#hud-counter {
-  flex: 1;
-  text-align: center;
-  font-size: 13px;
-  color: #999;
-  letter-spacing: 0.04em;
-}
-#hud-fit {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #ccc;
-  padding: 3px 9px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-}
-#hud-fit:hover {
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
-}
-
-#nav-prev,
-#nav-next {
-  position: fixed;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 28px;
-  color: rgba(255, 255, 255, 0);
-  padding: 20px 16px;
-  transition: color 0.15s;
-  z-index: 10;
-  user-select: none;
-  cursor: pointer;
-}
-#nav-prev {
-  left: 0;
-}
-#nav-next {
-  right: 0;
-}
-#nav-prev.disabled,
-#nav-next.disabled {
-  cursor: default;
-  pointer-events: none;
-}
-#nav-prev.loading,
-#nav-next.loading {
-  color: rgba(255, 255, 255, 0.15) !important;
-}
-body:hover #nav-prev:not(.disabled):not(.loading),
-body:hover #nav-next:not(.disabled):not(.loading) {
-  color: rgba(255, 255, 255, 0.3);
-}
-#nav-prev:not(.disabled):not(.loading):hover,
-#nav-next:not(.disabled):not(.loading):hover {
-  color: rgba(255, 255, 255, 0.9) !important;
-}
-
-#file-info {
-  position: fixed;
-  bottom: 10px;
-  right: 14px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.25);
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.2s;
-  z-index: 10;
-}
-body:hover #file-info {
-  opacity: 1;
-}
+const style_default = `*,\r
+*::before,\r
+*::after {\r
+  box-sizing: border-box;\r
+  margin: 0;\r
+  padding: 0;\r
+}\r
+html,\r
+body {\r
+  background: #111;\r
+  color: #ccc;\r
+  font:\r
+    13px/1 system-ui,\r
+    sans-serif;\r
+  height: 100%;\r
+}\r
+\r
+body.fit-h {\r
+  overflow: hidden;\r
+}\r
+body.fit-h #reader {\r
+  position: relative;\r
+  display: flex;\r
+  align-items: center;\r
+  justify-content: center;\r
+  width: 100vw;\r
+  height: 100vh;\r
+  overflow: hidden;\r
+}\r
+body.fit-h #img-wrap {\r
+  display: flex;\r
+  align-items: center;\r
+  justify-content: center;\r
+}\r
+body.fit-h #main-img {\r
+  max-height: 100vh;\r
+  max-width: 100vw;\r
+  width: auto;\r
+  height: 100vh;\r
+  object-fit: contain;\r
+}\r
+\r
+body.fit-w {\r
+  overflow-y: auto;\r
+  overflow-x: hidden;\r
+}\r
+body.fit-w #reader {\r
+  position: relative;\r
+  min-height: 100vh;\r
+  display: flex;\r
+  align-items: flex-start;\r
+  justify-content: center;\r
+  width: 100%;\r
+}\r
+body.fit-w #img-wrap {\r
+  display: block;\r
+}\r
+body.fit-w #main-img {\r
+  display: block;\r
+  max-width: 100vw;\r
+  height: auto;\r
+}\r
+\r
+#main-img {\r
+  user-select: none;\r
+  -webkit-user-drag: none;\r
+}\r
+\r
+#hud {\r
+  position: fixed;\r
+  top: 0;\r
+  left: 0;\r
+  right: 0;\r
+  display: flex;\r
+  align-items: center;\r
+  gap: 12px;\r
+  padding: 8px 14px;\r
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 0%, transparent 100%);\r
+  opacity: 0;\r
+  transition: opacity 0.2s;\r
+  z-index: 10;\r
+}\r
+body:hover #hud {\r
+  opacity: 1;\r
+}\r
+#hud-gallery {\r
+  color: #aaa;\r
+  text-decoration: none;\r
+  font-size: 18px;\r
+  line-height: 1;\r
+}\r
+#hud-gallery:hover {\r
+  color: #fff;\r
+}\r
+#hud-counter {\r
+  flex: 1;\r
+  text-align: center;\r
+  font-size: 13px;\r
+  color: #999;\r
+  letter-spacing: 0.04em;\r
+}\r
+#hud-fit {\r
+  background: rgba(255, 255, 255, 0.08);\r
+  border: 1px solid rgba(255, 255, 255, 0.15);\r
+  color: #ccc;\r
+  padding: 3px 9px;\r
+  border-radius: 4px;\r
+  cursor: pointer;\r
+  font-size: 12px;\r
+}\r
+#hud-fit:hover {\r
+  background: rgba(255, 255, 255, 0.18);\r
+  color: #fff;\r
+}\r
+\r
+#nav-prev,\r
+#nav-next {\r
+  position: fixed;\r
+  top: 50%;\r
+  transform: translateY(-50%);\r
+  font-size: 28px;\r
+  color: rgba(255, 255, 255, 0);\r
+  padding: 20px 16px;\r
+  transition: color 0.15s;\r
+  z-index: 10;\r
+  user-select: none;\r
+  cursor: pointer;\r
+}\r
+#nav-prev {\r
+  left: 0;\r
+}\r
+#nav-next {\r
+  right: 0;\r
+}\r
+#nav-prev.disabled,\r
+#nav-next.disabled {\r
+  cursor: default;\r
+  pointer-events: none;\r
+}\r
+#nav-prev.loading,\r
+#nav-next.loading {\r
+  color: rgba(255, 255, 255, 0.15) !important;\r
+}\r
+body:hover #nav-prev:not(.disabled):not(.loading),\r
+body:hover #nav-next:not(.disabled):not(.loading) {\r
+  color: rgba(255, 255, 255, 0.3);\r
+}\r
+#nav-prev:not(.disabled):not(.loading):hover,\r
+#nav-next:not(.disabled):not(.loading):hover {\r
+  color: rgba(255, 255, 255, 0.9) !important;\r
+}\r
+\r
+#file-info {\r
+  position: fixed;\r
+  bottom: 10px;\r
+  right: 14px;\r
+  font-size: 11px;\r
+  color: rgba(255, 255, 255, 0.25);\r
+  white-space: nowrap;\r
+  pointer-events: none;\r
+  opacity: 0;\r
+  transition: opacity 0.2s;\r
+  z-index: 10;\r
+}\r
+body:hover #file-info {\r
+  opacity: 1;\r
+}\r
 `;
 
 // src/ui.ts
@@ -447,7 +447,7 @@ function init() {
   pageCache.set(location.href, initData);
   ui = injectShell(initData);
   applyMode(fitHeight);
-  renderPage(ui, initData, fitHeight, true);
+  renderPage(ui, initData, fitHeight);
   prefetchBoth(initData);
   document.documentElement.style.cssText = "";
   log("SPA ready");
