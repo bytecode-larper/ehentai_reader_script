@@ -4,9 +4,11 @@ const header = `// ==UserScript==
 // @name         E-Hentai Clean Reader
 // @namespace    https://e-hentai.org/
 // @version      2.3.0
+// @icon         https://api.iconify.design/ph/book-open-bold.svg
 // @match        https://e-hentai.org/s/*/*
 // @match        https://exhentai.org/s/*/*
 // @grant        GM_addStyle
+// @run-at       document-start
 // ==/UserScript==\n\n`;
 
 const result = await Bun.build({

@@ -31,17 +31,18 @@ async function navigateTo(url: string | undefined | null): Promise<void> {
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  log("DOMContentLoaded");
+function init() {
+  log("init");
 
   const initData = parseViewerDoc(document, location.href);
   pageCache.set(location.href, initData);
 
   ui = injectShell(initData);
   applyMode(fitHeight);
-  renderPage(ui, initData, fitHeight);
+  renderPage(ui, initData, fitHeight, true);
   prefetchBoth(initData);
 
+  // Always clear — even if DOMContentLoaded already fired or was missed
   document.documentElement.style.cssText = "";
   log("SPA ready");
 
@@ -100,4 +101,14 @@ document.addEventListener("DOMContentLoaded", () => {
         break;
     }
   });
-});
+}
+
+// Handle all readyState cases:
+// - "loading"     → wait for DOMContentLoaded (normal document-start path)
+// - "interactive" → DOM ready, scripts may still be running, safe to init
+// - "complete"    → fully loaded, DOMContentLoaded already fired — init immediately
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init, { once: true });
+} else {
+  init();
+}

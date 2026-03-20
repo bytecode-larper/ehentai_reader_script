@@ -2,9 +2,11 @@
 // @name         E-Hentai Clean Reader
 // @namespace    https://e-hentai.org/
 // @version      2.3.0
+// @icon         https://api.iconify.design/ph/book-open-bold.svg
 // @match        https://e-hentai.org/s/*/*
 // @match        https://exhentai.org/s/*/*
 // @grant        GM_addStyle
+// @run-at       document-start
 // ==/UserScript==
 
 // src/parser.ts
@@ -74,7 +76,7 @@ const CONFIG = {
   DEBUG: true,
   PREFETCH_COUNT: 2,
   MAX_NL_RETRY: 4,
-  IMG_CACHE_LIMIT: 10,
+  IMG_CACHE_LIMIT: 20,
   SCROLL_STEP: 160,
 };
 const TAG = "[EH-Reader]";
@@ -166,56 +168,194 @@ function prefetchBoth(data) {
   prefetchDirection(data, (d) => d.prevHref).catch((e) => warn("prefetch backward error", e));
 }
 
+// src/shell.html
+const shell_default = `<div id="reader">
+  <span id="img-wrap"><img id="main-img" src="" alt="" /></span>
+  <div id="hud">
+    <a id="hud-gallery" href="" title="Back to gallery">&#8617;</a>
+    <span id="hud-counter"></span>
+    <button id="hud-fit" title="Toggle fit (F)">fit&nbsp;H</button>
+  </div>
+  <span id="nav-prev" class="disabled">&#8592;</span>
+  <span id="nav-next" class="disabled">&#8594;</span>
+  <div id="file-info"></div>
+</div>
+`;
+
+// src/style.css
+const style_default = `*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html,
+body {
+  background: #111;
+  color: #ccc;
+  font:
+    13px/1 system-ui,
+    sans-serif;
+  height: 100%;
+}
+
+body.fit-h {
+  overflow: hidden;
+}
+body.fit-h #reader {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+body.fit-h #img-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+body.fit-h #main-img {
+  max-height: 100vh;
+  max-width: 100vw;
+  width: auto;
+  height: 100vh;
+  object-fit: contain;
+}
+
+body.fit-w {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+body.fit-w #reader {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 100%;
+}
+body.fit-w #img-wrap {
+  display: block;
+}
+body.fit-w #main-img {
+  display: block;
+  max-width: 100vw;
+  height: auto;
+}
+
+#main-img {
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+#hud {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 10;
+}
+body:hover #hud {
+  opacity: 1;
+}
+#hud-gallery {
+  color: #aaa;
+  text-decoration: none;
+  font-size: 18px;
+  line-height: 1;
+}
+#hud-gallery:hover {
+  color: #fff;
+}
+#hud-counter {
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+  color: #999;
+  letter-spacing: 0.04em;
+}
+#hud-fit {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ccc;
+  padding: 3px 9px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+#hud-fit:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+#nav-prev,
+#nav-next {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 28px;
+  color: rgba(255, 255, 255, 0);
+  padding: 20px 16px;
+  transition: color 0.15s;
+  z-index: 10;
+  user-select: none;
+  cursor: pointer;
+}
+#nav-prev {
+  left: 0;
+}
+#nav-next {
+  right: 0;
+}
+#nav-prev.disabled,
+#nav-next.disabled {
+  cursor: default;
+  pointer-events: none;
+}
+#nav-prev.loading,
+#nav-next.loading {
+  color: rgba(255, 255, 255, 0.15) !important;
+}
+body:hover #nav-prev:not(.disabled):not(.loading),
+body:hover #nav-next:not(.disabled):not(.loading) {
+  color: rgba(255, 255, 255, 0.3);
+}
+#nav-prev:not(.disabled):not(.loading):hover,
+#nav-next:not(.disabled):not(.loading):hover {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+#file-info {
+  position: fixed;
+  bottom: 10px;
+  right: 14px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.25);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 10;
+}
+body:hover #file-info {
+  opacity: 1;
+}
+`;
+
 // src/ui.ts
 function injectShell(initData) {
-  document.body.innerHTML = `
-    <div id="reader">
-      <span id="img-wrap"><img id="main-img" src="" alt=""></span>
-      <div id="hud">
-        <a id="hud-gallery" href="${initData.galleryHref}" title="Back to gallery">&#8617;</a>
-        <span id="hud-counter"></span>
-        <button id="hud-fit" title="Toggle fit (F)">fit&nbsp;H</button>
-      </div>
-      <span id="nav-prev" class="disabled">&#8592;</span>
-      <span id="nav-next" class="disabled">&#8594;</span>
-      <div id="file-info"></div>
-    </div>`;
-  GM_addStyle(`
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { background: #111; color: #ccc; font: 13px/1 system-ui, sans-serif; height: 100%; }
-
-    body.fit-h { overflow: hidden; }
-    body.fit-h #reader { position: relative; display: flex; align-items: center; justify-content: center; width: 100vw; height: 100vh; overflow: hidden; }
-    body.fit-h #img-wrap { display: flex; align-items: center; justify-content: center; }
-    body.fit-h #main-img { max-height: 100vh; max-width: 100vw; width: auto; height: 100vh; object-fit: contain; }
-
-    body.fit-w { overflow-y: auto; overflow-x: hidden; }
-    body.fit-w #reader { position: relative; min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; width: 100%; }
-    body.fit-w #img-wrap { display: block; }
-    body.fit-w #main-img { display: block; max-width: 100vw; height: auto; }
-
-    #main-img { user-select: none; -webkit-user-drag: none; }
-
-    #hud { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 12px; padding: 8px 14px; background: linear-gradient(to bottom, rgba(0,0,0,.7) 0%, transparent 100%); opacity: 0; transition: opacity 0.2s; z-index: 10; }
-    body:hover #hud { opacity: 1; }
-    #hud-gallery { color: #aaa; text-decoration: none; font-size: 18px; line-height: 1; }
-    #hud-gallery:hover { color: #fff; }
-    #hud-counter { flex: 1; text-align: center; font-size: 13px; color: #999; letter-spacing: .04em; }
-    #hud-fit { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); color: #ccc; padding: 3px 9px; border-radius: 4px; cursor: pointer; font-size: 12px; }
-    #hud-fit:hover { background: rgba(255,255,255,.18); color: #fff; }
-
-    #nav-prev, #nav-next { position: fixed; top: 50%; transform: translateY(-50%); font-size: 28px; color: rgba(255,255,255,0); padding: 20px 16px; transition: color 0.15s; z-index: 10; user-select: none; cursor: pointer; }
-    #nav-prev { left: 0; } #nav-next { right: 0; }
-    #nav-prev.disabled, #nav-next.disabled { cursor: default; pointer-events: none; }
-    #nav-prev.loading, #nav-next.loading { color: rgba(255,255,255,.15) !important; }
-    body:hover #nav-prev:not(.disabled):not(.loading),
-    body:hover #nav-next:not(.disabled):not(.loading) { color: rgba(255,255,255,.3); }
-    #nav-prev:not(.disabled):not(.loading):hover,
-    #nav-next:not(.disabled):not(.loading):hover { color: rgba(255,255,255,.9) !important; }
-
-    #file-info { position: fixed; bottom: 10px; right: 14px; font-size: 11px; color: rgba(255,255,255,.25); white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 10; }
-    body:hover #file-info { opacity: 1; }
-  `);
+  document.body.innerHTML = shell_default.replace('href=""', `href="${initData.galleryHref}"`);
+  GM_addStyle(style_default);
   return {
     elImg: document.getElementById("main-img"),
     elCounter: document.getElementById("hud-counter"),
@@ -301,13 +441,13 @@ async function navigateTo(url) {
     isNavigating = false;
   }
 }
-document.addEventListener("DOMContentLoaded", () => {
-  log("DOMContentLoaded");
+function init() {
+  log("init");
   const initData = parseViewerDoc(document, location.href);
   pageCache.set(location.href, initData);
   ui = injectShell(initData);
   applyMode(fitHeight);
-  renderPage(ui, initData, fitHeight);
+  renderPage(ui, initData, fitHeight, true);
   prefetchBoth(initData);
   document.documentElement.style.cssText = "";
   log("SPA ready");
@@ -367,4 +507,9 @@ document.addEventListener("DOMContentLoaded", () => {
         break;
     }
   });
-});
+}
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init, { once: true });
+} else {
+  init();
+}

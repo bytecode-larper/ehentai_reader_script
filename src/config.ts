@@ -2,7 +2,7 @@ export const CONFIG = {
   DEBUG: true,
   PREFETCH_COUNT: 2,
   MAX_NL_RETRY: 4,
-  IMG_CACHE_LIMIT: 10,
+  IMG_CACHE_LIMIT: 20,
   SCROLL_STEP: 160,
 };
 
