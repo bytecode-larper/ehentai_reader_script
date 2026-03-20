@@ -78,6 +78,7 @@ bun run dev
 ## Architecture
 
 - **`src/main.ts`**: Entry point, session state, and event wiring.
+- **`src/zoom.ts`**: Modular controller for zooming, panning, and rubber-banding logic.
 - **`src/parser.ts`**: Logical data extraction and EH style-guide parsing.
 - **`src/ui.ts`**: DOM management, dynamic resizing, and HTML rendering.
 - **`src/network.ts`**: Fetching, prefetching, and `img.decode` optimization.

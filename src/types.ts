@@ -24,11 +24,8 @@ export interface PageData {
 }
 
 export interface UserSettings {
-  // User-facing (Menu)
   fitHeight: boolean;
   debug: boolean;
-
-  // Tunables (Internal)
   scrollStep: number;
   prefetchCount: number;
   maxNlRetry: number;

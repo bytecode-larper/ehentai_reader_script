@@ -581,63 +581,147 @@ function renderPage(ui, data, fitHeight, isInitial = false) {
   log("rendered", data.counterText);
 }
 
+// src/zoom.ts
+class ZoomController {
+  container;
+  img;
+  getFitHeight;
+  zoomLevel = 1;
+  zoomSnapTimer = null;
+  panX = 0;
+  panY = 0;
+  isDragging = false;
+  startX = 0;
+  startY = 0;
+  hasMoved = false;
+  constructor(container, img, getFitHeight) {
+    this.container = container;
+    this.img = img;
+    this.getFitHeight = getFitHeight;
+    this.initEvents();
+  }
+  initEvents() {
+    this.container.addEventListener("mousedown", (e) => this.onMouseDown(e));
+    window.addEventListener("mousemove", (e) => this.onMouseMove(e));
+    window.addEventListener("mouseup", () => this.onMouseUp());
+    window.addEventListener(
+      "wheel",
+      (e) => {
+        if (e.ctrlKey) {
+          e.preventDefault();
+          this.updateZoom(e.deltaY < 0 ? 0.1 : -0.1, this.getFitHeight());
+        }
+      },
+      { passive: false }
+    );
+  }
+  updateTransform() {
+    const imgWidth = this.img.clientWidth;
+    const imgHeight = this.img.clientHeight;
+    const scaledWidth = imgWidth * this.zoomLevel;
+    const scaledHeight = imgHeight * this.zoomLevel;
+    const limitX = Math.max(0, (scaledWidth - window.innerWidth) / 2);
+    const limitY = Math.max(0, (scaledHeight - window.innerHeight) / 2);
+    this.panX = Math.max(-limitX, Math.min(this.panX, limitX));
+    this.panY = Math.max(-limitY, Math.min(this.panY, limitY));
+    this.img.style.transform =
+      this.zoomLevel === 1 && this.panX === 0 && this.panY === 0
+        ? ""
+        : `translate(${this.panX}px, ${this.panY}px) scale(${this.zoomLevel})`;
+  }
+  updateZoom(delta, isFitHeight) {
+    if (delta !== null && !isFitHeight) {
+      return;
+    }
+    if (delta === null) {
+      this.reset();
+    } else {
+      this.zoomLevel = Math.max(0.7, Math.min(5, this.zoomLevel + delta));
+      this.updateTransform();
+      showToast(`ZOOM: ${Math.round(this.zoomLevel * 100)}%`);
+    }
+    if (this.zoomSnapTimer) {
+      window.clearTimeout(this.zoomSnapTimer);
+    }
+    if (this.zoomLevel < 1) {
+      this.zoomSnapTimer = window.setTimeout(() => {
+        this.reset();
+        showToast("ZOOM: 100%");
+      }, 200);
+    }
+  }
+  reset() {
+    this.zoomLevel = 1;
+    this.panX = 0;
+    this.panY = 0;
+    this.updateTransform();
+  }
+  onMouseDown(e) {
+    if (e.target.closest("#hud, #page-info")) {
+      return;
+    }
+    if (!this.getFitHeight()) {
+      return;
+    }
+    e.preventDefault();
+    if (this.zoomLevel > 1) {
+      this.isDragging = true;
+      this.hasMoved = false;
+      this.startX = e.clientX - this.panX;
+      this.startY = e.clientY - this.panY;
+      this.container.style.cursor = "grabbing";
+      this.img.classList.add("no-transition");
+    }
+  }
+  onMouseMove(e) {
+    if (this.isDragging) {
+      const newPanX = e.clientX - this.startX;
+      const newPanY = e.clientY - this.startY;
+      if (Math.abs(newPanX - this.panX) > 2 || Math.abs(newPanY - this.panY) > 2) {
+        this.hasMoved = true;
+      }
+      this.panX = newPanX;
+      this.panY = newPanY;
+      this.updateTransform();
+    }
+  }
+  onMouseUp() {
+    if (this.isDragging) {
+      this.isDragging = false;
+      this.container.style.cursor = "pointer";
+      this.img.classList.remove("no-transition");
+    }
+  }
+  handleKey(key, isFitHeight) {
+    if (isFitHeight && this.zoomLevel > 1) {
+      if (key === "ARROWUP" || key === "W") {
+        this.panY += SETTINGS.scrollStep;
+        this.updateTransform();
+        return true;
+      }
+      if (key === "ARROWDOWN" || key === "S") {
+        this.panY -= SETTINGS.scrollStep;
+        this.updateTransform();
+        return true;
+      }
+    }
+    return false;
+  }
+  get isZoomed() {
+    return this.zoomLevel > 1;
+  }
+  get wasPanned() {
+    return this.hasMoved;
+  }
+}
+
 // src/main.ts
 document.documentElement.style.cssText = "visibility:hidden!important;background:#111!important";
 let pendingNav = null;
 let isNavigating = false;
 let ui;
+let zoom;
 let currentFitHeight = SETTINGS.fitHeight;
-let zoomLevel = 1;
-let zoomSnapTimer = null;
-let panX = 0;
-let panY = 0;
-let isDragging = false;
-let startX = 0;
-let startY = 0;
-let hasMoved = false;
-function updateTransform() {
-  if (ui?.elImg) {
-    const imgWidth = ui.elImg.clientWidth;
-    const imgHeight = ui.elImg.clientHeight;
-    const scaledWidth = imgWidth * zoomLevel;
-    const scaledHeight = imgHeight * zoomLevel;
-    const limitX = Math.max(0, (scaledWidth - window.innerWidth) / 2);
-    const limitY = Math.max(0, (scaledHeight - window.innerHeight) / 2);
-    panX = Math.max(-limitX, Math.min(panX, limitX));
-    panY = Math.max(-limitY, Math.min(panY, limitY));
-    ui.elImg.style.transform =
-      zoomLevel === 1 && panX === 0 && panY === 0
-        ? ""
-        : `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
-  }
-}
-function updateZoom(delta) {
-  if (delta !== null && !currentFitHeight) {
-    return;
-  }
-  if (delta === null) {
-    resetZoom();
-  } else {
-    zoomLevel = Math.max(0.7, Math.min(5, zoomLevel + delta));
-    updateTransform();
-    showToast(`ZOOM: ${Math.round(zoomLevel * 100)}%`);
-  }
-  if (zoomSnapTimer) {
-    window.clearTimeout(zoomSnapTimer);
-  }
-  if (zoomLevel < 1) {
-    zoomSnapTimer = window.setTimeout(() => {
-      resetZoom();
-      showToast("ZOOM: 100%");
-    }, 200);
-  }
-}
-function resetZoom() {
-  zoomLevel = 1;
-  panX = 0;
-  panY = 0;
-  updateTransform();
-}
 async function navigateTo(url) {
   if (!url) {
     return;
@@ -652,7 +736,7 @@ async function navigateTo(url) {
     isNavigating = true;
     try {
       const data = await fetchViewerPage(target);
-      resetZoom();
+      zoom?.reset();
       renderPage(ui, data, currentFitHeight);
       prefetchBoth(data);
     } catch (e) {
@@ -666,14 +750,13 @@ function init() {
   const initData = parseViewerDoc(document, location.href);
   pageCache.set(location.href, initData);
   ui = injectShell(initData);
+  zoom = new ZoomController(document.getElementById("reader"), ui.elImg, () => currentFitHeight);
   applyMode(currentFitHeight);
   renderPage(ui, initData, currentFitHeight, true);
   prefetchBoth(initData);
   registerMenuCommands((newFit) => {
     currentFitHeight = newFit;
-    if (!currentFitHeight) {
-      updateZoom(null);
-    }
+    zoom.updateZoom(null, currentFitHeight);
     applyMode(currentFitHeight);
   });
   document.documentElement.style.cssText = "";
@@ -682,7 +765,7 @@ function init() {
     const url = e.state?.viewerUrl ?? location.href;
     const data = pageCache.get(url);
     if (data) {
-      resetZoom();
+      zoom.reset();
       renderPage(ui, data, currentFitHeight);
       prefetchBoth(data);
     } else {
@@ -690,51 +773,11 @@ function init() {
     }
   });
   const reader = document.getElementById("reader");
-  reader?.addEventListener("mousedown", (e) => {
-    if (e.target.closest("#hud, #page-info")) {
-      return;
-    }
-    e.preventDefault();
-    if (zoomLevel > 1) {
-      isDragging = true;
-      hasMoved = false;
-      startX = e.clientX - panX;
-      startY = e.clientY - panY;
-      reader.style.cursor = "grabbing";
-      if (ui?.elImg) {
-        ui.elImg.classList.add("no-transition");
-      }
-    }
-  });
-  window.addEventListener("mousemove", (e) => {
-    showCursor();
-    if (isDragging) {
-      const newPanX = e.clientX - startX;
-      const newPanY = e.clientY - startY;
-      if (Math.abs(newPanX - panX) > 2 || Math.abs(newPanY - panY) > 2) {
-        hasMoved = true;
-      }
-      panX = newPanX;
-      panY = newPanY;
-      updateTransform();
-    }
-  });
-  window.addEventListener("mouseup", () => {
-    if (isDragging) {
-      isDragging = false;
-      if (reader) {
-        reader.style.cursor = "pointer";
-      }
-      if (ui?.elImg) {
-        ui.elImg.classList.remove("no-transition");
-      }
-    }
-  });
   reader?.addEventListener("click", (e) => {
     if (e.target.closest("#hud, #page-info")) {
       return;
     }
-    if (hasMoved) {
+    if (zoom.wasPanned) {
       return;
     }
     const x = e.clientX;
@@ -757,16 +800,6 @@ function init() {
   window.addEventListener("mousemove", showCursor);
   window.addEventListener("mousedown", showCursor);
   showCursor();
-  window.addEventListener(
-    "wheel",
-    (e) => {
-      if (e.ctrlKey) {
-        e.preventDefault();
-        updateZoom(e.deltaY < 0 ? 0.1 : -0.1);
-      }
-    },
-    { passive: false }
-  );
   document.addEventListener("keydown", (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
       return;
@@ -775,17 +808,17 @@ function init() {
     if (e.ctrlKey) {
       if (k === "=" || k === "+" || e.key === "+") {
         e.preventDefault();
-        updateZoom(0.1);
+        zoom.updateZoom(0.1, currentFitHeight);
         return;
       }
       if (k === "-" || k === "_" || e.key === "-") {
         e.preventDefault();
-        updateZoom(-0.1);
+        zoom.updateZoom(-0.1, currentFitHeight);
         return;
       }
       if (k === "0") {
         e.preventDefault();
-        updateZoom(null);
+        zoom.updateZoom(null, currentFitHeight);
         return;
       }
     }
@@ -793,12 +826,13 @@ function init() {
       window.clearTimeout(mouseTimer);
     }
     mouseTimer = window.setTimeout(hideCursor, 3000);
+    if (zoom.handleKey(k, currentFitHeight)) {
+      return;
+    }
     switch (k) {
       case "F":
         currentFitHeight = !currentFitHeight;
-        if (!currentFitHeight) {
-          updateZoom(null);
-        }
+        zoom.updateZoom(null, currentFitHeight);
         applyMode(currentFitHeight);
         showToast(`MODE: ${currentFitHeight ? "FIT HEIGHT" : "NATURAL WIDTH"}`);
         break;
@@ -807,20 +841,14 @@ function init() {
         break;
       case "ARROWUP":
       case "W":
-        if (currentFitHeight && zoomLevel > 1) {
-          panY += SETTINGS.scrollStep;
-          updateTransform();
-        } else if (!currentFitHeight) {
+        if (!currentFitHeight) {
           e.preventDefault();
           window.scrollBy(0, -SETTINGS.scrollStep);
         }
         break;
       case "ARROWDOWN":
       case "S":
-        if (currentFitHeight && zoomLevel > 1) {
-          panY -= SETTINGS.scrollStep;
-          updateTransform();
-        } else if (!currentFitHeight) {
+        if (!currentFitHeight) {
           e.preventDefault();
           window.scrollBy(0, SETTINGS.scrollStep);
         }

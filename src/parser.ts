@@ -19,8 +19,6 @@ export function parseViewerDoc(doc: Document | HTMLElement, viewerUrl: string): 
   const hrefMatching = (n: number) =>
     anchors.find((a) => a.href.match(new RegExp(`-(${n})(\\?|$)`)))?.href ?? null;
 
-  // Fix: previous logic had an operator precedence bug — ?? binds looser than
-  // the ternary, so the #i3 fallback was always evaluated. Explicit check first.
   const nextHref = (() => {
     const byNum = hrefMatching(pageNum + 1);
     if (byNum) return byNum;
@@ -71,18 +69,13 @@ export function parseViewerDoc(doc: Document | HTMLElement, viewerUrl: string): 
   };
 }
 
-/**
- * Parses E-Hentai format into structured data
- */
 function parseTitle(raw: string): ParsedTitle {
   let text = raw.trim();
   const leading: TitleMetadata[] = [];
   const trailing: TitleMetadata[] = [];
 
-  // Known language indicators (Commonly used at the end)
   const langRegex = /\[(English|Japanese|Chinese|Korean|Thai|Vietnamese|French|German|Italian|Portuguese|Russian|Spanish)/i;
 
-  // 1. Leading metadata
   while (true) {
     const match = text.match(/^(\([^)]+\)|\[[^\]]+\])\s*/);
     if (!match || !match[1]) break;
@@ -99,7 +92,6 @@ function parseTitle(raw: string): ParsedTitle {
     text = text.slice(match[0].length).trim();
   }
 
-  // 2. Trailing metadata
   while (true) {
     const match = text.match(/\s*(\([^)]+\)|\[[^\]]+\])$/);
     if (!match || !match[1]) break;
@@ -116,7 +108,6 @@ function parseTitle(raw: string): ParsedTitle {
     text = text.slice(0, -match[0].length).trim();
   }
 
-  // 3. Split primary/secondary
   const parts = text.split(/\s*\|\s*/);
   
   return {

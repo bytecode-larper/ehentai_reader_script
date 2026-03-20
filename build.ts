@@ -27,7 +27,6 @@ async function build() {
 
   if (result.success) {
     const bundlePath = "./dist/ehentai_clean_reader.user.js";
-    // result.outputs[0] is the primary bundle
     let code = await result.outputs[0].text();
     console.log(`[${new Date().toLocaleTimeString()}] 📦 Bundled size: ${code.length} bytes`);
 
@@ -48,10 +47,8 @@ async function build() {
   }
 }
 
-// Initial build
 await build();
 
-// Handle flags
 const args = process.argv.slice(2);
 const shouldWatch = args.includes("--watch");
 const shouldServe = args.includes("--serve");

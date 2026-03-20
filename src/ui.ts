@@ -4,15 +4,12 @@ import { log, warn, SETTINGS } from "./config";
 import shellHtml from "./shell.html" with { type: "text" };
 import styles from "./style.css" with { type: "text" };
 
-// UI element refs — populated by injectShell, exported for main.ts event wiring
 export interface UIRefs {
   elImg: HTMLImageElement;
   elTitle: HTMLElement;
   elCounter: HTMLElement;
   elFileInfo: HTMLElement;
   elGallery: HTMLAnchorElement;
-  // Note: Previous and Next navigation elements are removed from DOM, 
-  // but their logic is preserved via full-screen click zones and data-href storage.
 }
 
 export function injectShell(initData: PageData): UIRefs {
@@ -27,12 +24,10 @@ export function injectShell(initData: PageData): UIRefs {
     elGallery: document.getElementById("hud-gallery") as HTMLAnchorElement,
   };
 
-  // Dynamically adjust title width to avoid overlapping the image
   const updateTitleWidth = () => {
     const imgWidth = ui.elImg.clientWidth;
     const viewportWidth = window.innerWidth;
     const gutter = (viewportWidth - imgWidth) / 2;
-    // Aim for the gutter, but keep a minimum of 200px so it's readable if overlapping
     ui.elTitle.style.maxWidth = `${Math.max(200, gutter - 30)}px`;
   };
 
@@ -65,7 +60,6 @@ export function displayImage(elImg: HTMLImageElement, pageData: PageData, retryC
   elImg.onload = null;
   elImg.onerror = null;
 
-  // If preload <img> already finished, browser has it decoded — assign and paint
   const preloaded = imgCache.get(pageData.imgSrc);
   if (preloaded?.complete && preloaded.naturalWidth > 0) {
     log("instant from cache", pageData.imgSrc);
@@ -89,7 +83,6 @@ export function displayImage(elImg: HTMLImageElement, pageData: PageData, retryC
 function renderTitle(title: ParsedTitle): string {
   const formatMeta = (m: { text: string; type: string }) => {
     let content = m.text;
-    // Highlight (Artist) within [Group (Artist)]
     if (m.type === "artist") {
       content = content.replace(/\(([^)]+)\)/, "<span>($1)</span>");
     }
@@ -122,8 +115,6 @@ export function renderPage(
   ui.elFileInfo.textContent = data.fileInfo;
   ui.elGallery.href = data.galleryHref;
 
-  // Since elPrev/elNext elements are gone, we use the reader container's 
-  // data attributes to store current nav state for the click listener.
   const reader = document.getElementById("reader");
   if (reader) {
     reader.dataset.prev = data.prevHref ?? "";

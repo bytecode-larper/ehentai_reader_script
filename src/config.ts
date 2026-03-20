@@ -1,19 +1,14 @@
 import type { UserSettings } from "./types";
 
-// Default settings
 const DEFAULT_SETTINGS: UserSettings = {
-  // User-facing (Menu Preferences)
-  fitHeight: true, // This is the "Default" for new loads
+  fitHeight: true,
   debug: true,
-
-  // Tunables (Internal)
   scrollStep: 220,
   prefetchCount: 2,
   maxNlRetry: 4,
   imgCacheLimit: 20,
 };
 
-// Global settings object
 export const SETTINGS: UserSettings = {
   ...DEFAULT_SETTINGS,
   fitHeight: GM_getValue("defaultFitHeight", DEFAULT_SETTINGS.fitHeight),

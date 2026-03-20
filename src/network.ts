@@ -89,8 +89,6 @@ async function prefetchDirection(
   }
 }
 
-// Run both directions in parallel — no reason to wait for forward before
-// starting backward.
 export function prefetchBoth(data: PageData): void {
   prefetchDirection(data, (d) => d.nextHref).catch((e) => warn("prefetch forward error", e));
   prefetchDirection(data, (d) => d.prevHref).catch((e) => warn("prefetch backward error", e));
