@@ -22,10 +22,14 @@ function parseViewerDoc(doc, viewerUrl) {
   const anchors = [...doc.querySelectorAll('a[href*="/s/"]')];
   const hrefMatching = (n) =>
     anchors.find((a) => a.href.match(new RegExp(`-(${n})(\\?|$)`)))?.href ?? null;
-  const nextHref =
-    (hrefMatching(pageNum + 1) ?? doc.querySelector("#i3 a")?.href !== viewerUrl)
-      ? doc.querySelector("#i3 a")?.href
-      : null;
+  const nextHref = (() => {
+    const byNum = hrefMatching(pageNum + 1);
+    if (byNum) {
+      return byNum;
+    }
+    const i3 = doc.querySelector("#i3 a")?.href;
+    return i3 && i3 !== viewerUrl ? i3 : null;
+  })();
   const prevHref =
     pageNum <= 1
       ? null
@@ -35,19 +39,17 @@ function parseViewerDoc(doc, viewerUrl) {
           : null));
   const counterText =
     [...doc.querySelectorAll("div, span, td")]
-      .find((el) => /^\d+ \/ \d+$/.test(el.textContent?.trim() || ""))
+      .find((el) => /^\d+ \/ \d+$/.test(el.textContent?.trim() ?? ""))
       ?.textContent?.trim() ?? `${pageNum} / ?`;
   const totalPages = parseInt(counterText.split("/")[1]?.trim() ?? "0", 10);
   const fileInfo = (() => {
     for (const el of doc.querySelector("#i2")?.querySelectorAll("div, span") ?? []) {
-      const t = el.textContent?.trim() || "";
+      const t = (el.textContent ?? "").trim();
       if (/\d+ x \d+/.test(t) && t.includes("::")) {
-        return t
-          .split(
-            `
-`,
-          )[0]
-          .trim();
+        return (
+          t.split(`
+`)[0] ?? t
+        ).trim();
       }
     }
     return "";
@@ -100,6 +102,7 @@ function preloadImage(src) {
     const oldest = imgCache.keys().next().value;
     imgCache.get(oldest)?.remove();
     imgCache.delete(oldest);
+    log("evicted preload", oldest);
   }
   ensurePreloadContainer();
   const img = document.createElement("img");
@@ -108,10 +111,12 @@ function preloadImage(src) {
   img.src = src;
   preloadContainer.appendChild(img);
   imgCache.set(src, img);
+  log("preloading", src);
   return img;
 }
 async function fetchViewerPage(viewerUrl) {
   if (pageCache.has(viewerUrl)) {
+    log("viewer cache hit", viewerUrl);
     return pageCache.get(viewerUrl);
   }
   log("fetching viewer →", viewerUrl);
@@ -119,6 +124,7 @@ async function fetchViewerPage(viewerUrl) {
   const html = await res.text();
   const data = parseViewerDoc(new DOMParser().parseFromString(html, "text/html"), viewerUrl);
   pageCache.set(viewerUrl, data);
+  log("cached viewer", viewerUrl, "| img:", data.imgSrc, "| nl:", data.nlToken);
   return data;
 }
 async function fetchNlRetry(pageData) {
@@ -131,7 +137,7 @@ async function fetchNlRetry(pageData) {
     const res = await fetch(retryUrl, { credentials: "include" });
     const newData = parseViewerDoc(
       new DOMParser().parseFromString(await res.text(), "text/html"),
-      pageData.viewerUrl,
+      pageData.viewerUrl
     );
     pageCache.set(pageData.viewerUrl, newData);
     return newData;
@@ -140,36 +146,27 @@ async function fetchNlRetry(pageData) {
     return null;
   }
 }
-async function prefetchBoth(data) {
-  const prefetchDirection = async (getNext) => {
-    let cur = data;
-    for (let i = 0; i < CONFIG.PREFETCH_COUNT; i++) {
-      const href = getNext(cur);
-      if (!href) {
-        break;
-      }
-      const nextData = await fetchViewerPage(href).catch(() => null);
-      if (!nextData?.imgSrc) {
-        break;
-      }
-      preloadImage(nextData.imgSrc);
-      cur = nextData;
+async function prefetchDirection(data, getNext) {
+  let cur = data;
+  for (let i = 0; i < CONFIG.PREFETCH_COUNT; i++) {
+    const href = getNext(cur);
+    if (!href) {
+      break;
     }
-  };
-  prefetchDirection((d) => d.nextHref);
-  prefetchDirection((d) => d.prevHref);
+    const next = await fetchViewerPage(href).catch(() => null);
+    if (!next?.imgSrc) {
+      break;
+    }
+    preloadImage(next.imgSrc);
+    cur = next;
+  }
+}
+function prefetchBoth(data) {
+  prefetchDirection(data, (d) => d.nextHref).catch((e) => warn("prefetch forward error", e));
+  prefetchDirection(data, (d) => d.prevHref).catch((e) => warn("prefetch backward error", e));
 }
 
 // src/ui.ts
-const UI = {
-  elImg: null,
-  elCounter: null,
-  elBottomCounter: null,
-  elFileInfo: null,
-  elPrev: null,
-  elNext: null,
-  elGallery: null,
-};
 function injectShell(initData) {
   document.body.innerHTML = `
     <div id="reader">
@@ -181,25 +178,52 @@ function injectShell(initData) {
       </div>
       <span id="nav-prev" class="disabled">&#8592;</span>
       <span id="nav-next" class="disabled">&#8594;</span>
-      <div id="bottom-counter"></div>
       <div id="file-info"></div>
     </div>`;
   GM_addStyle(`
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { background: #111; color: #ccc; font: 13px/1 system-ui, sans-serif; height: 100%; }
-    /* ... The rest of your CSS ... */
+
     body.fit-h { overflow: hidden; }
+    body.fit-h #reader { position: relative; display: flex; align-items: center; justify-content: center; width: 100vw; height: 100vh; overflow: hidden; }
+    body.fit-h #img-wrap { display: flex; align-items: center; justify-content: center; }
     body.fit-h #main-img { max-height: 100vh; max-width: 100vw; width: auto; height: 100vh; object-fit: contain; }
+
     body.fit-w { overflow-y: auto; overflow-x: hidden; }
+    body.fit-w #reader { position: relative; min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; width: 100%; }
+    body.fit-w #img-wrap { display: block; }
     body.fit-w #main-img { display: block; max-width: 100vw; height: auto; }
+
+    #main-img { user-select: none; -webkit-user-drag: none; }
+
+    #hud { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 12px; padding: 8px 14px; background: linear-gradient(to bottom, rgba(0,0,0,.7) 0%, transparent 100%); opacity: 0; transition: opacity 0.2s; z-index: 10; }
+    body:hover #hud { opacity: 1; }
+    #hud-gallery { color: #aaa; text-decoration: none; font-size: 18px; line-height: 1; }
+    #hud-gallery:hover { color: #fff; }
+    #hud-counter { flex: 1; text-align: center; font-size: 13px; color: #999; letter-spacing: .04em; }
+    #hud-fit { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); color: #ccc; padding: 3px 9px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    #hud-fit:hover { background: rgba(255,255,255,.18); color: #fff; }
+
+    #nav-prev, #nav-next { position: fixed; top: 50%; transform: translateY(-50%); font-size: 28px; color: rgba(255,255,255,0); padding: 20px 16px; transition: color 0.15s; z-index: 10; user-select: none; cursor: pointer; }
+    #nav-prev { left: 0; } #nav-next { right: 0; }
+    #nav-prev.disabled, #nav-next.disabled { cursor: default; pointer-events: none; }
+    #nav-prev.loading, #nav-next.loading { color: rgba(255,255,255,.15) !important; }
+    body:hover #nav-prev:not(.disabled):not(.loading),
+    body:hover #nav-next:not(.disabled):not(.loading) { color: rgba(255,255,255,.3); }
+    #nav-prev:not(.disabled):not(.loading):hover,
+    #nav-next:not(.disabled):not(.loading):hover { color: rgba(255,255,255,.9) !important; }
+
+    #file-info { position: fixed; bottom: 10px; right: 14px; font-size: 11px; color: rgba(255,255,255,.25); white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 10; }
+    body:hover #file-info { opacity: 1; }
   `);
-  UI.elImg = document.getElementById("main-img");
-  UI.elCounter = document.getElementById("hud-counter");
-  UI.elBottomCounter = document.getElementById("bottom-counter");
-  UI.elFileInfo = document.getElementById("file-info");
-  UI.elPrev = document.getElementById("nav-prev");
-  UI.elNext = document.getElementById("nav-next");
-  UI.elGallery = document.getElementById("hud-gallery");
+  return {
+    elImg: document.getElementById("main-img"),
+    elCounter: document.getElementById("hud-counter"),
+    elFileInfo: document.getElementById("file-info"),
+    elPrev: document.getElementById("nav-prev"),
+    elNext: document.getElementById("nav-next"),
+    elGallery: document.getElementById("hud-gallery"),
+  };
 }
 function applyMode(fitHeight) {
   document.body.classList.toggle("fit-h", fitHeight);
@@ -209,66 +233,52 @@ function applyMode(fitHeight) {
     btn.textContent = fitHeight ? "fit H" : "natural";
   }
 }
-function displayImage(pageData, retryCount = 0) {
-  if (!UI.elImg) {
-    return;
-  }
-  UI.elImg.onload = null;
-  UI.elImg.onerror = null;
+function displayImage(elImg, pageData, retryCount = 0) {
+  elImg.onload = null;
+  elImg.onerror = null;
   const preloaded = imgCache.get(pageData.imgSrc);
   if (preloaded?.complete && preloaded.naturalWidth > 0) {
-    UI.elImg.src = pageData.imgSrc;
+    log("instant from cache", pageData.imgSrc);
+    elImg.src = pageData.imgSrc;
     return;
   }
-  UI.elImg.onload = () => log("image displayed", pageData.imgSrc);
-  UI.elImg.onerror = async () => {
+  elImg.onload = () => log("image displayed", pageData.imgSrc);
+  elImg.onerror = async () => {
     warn(`image failed (attempt ${retryCount + 1})`, pageData.imgSrc);
     if (retryCount >= CONFIG.MAX_NL_RETRY) {
+      warn("giving up");
       return;
     }
     const newData = await fetchNlRetry(pageData);
     if (newData) {
-      displayImage(newData, retryCount + 1);
+      displayImage(elImg, newData, retryCount + 1);
     }
   };
-  UI.elImg.src = pageData.imgSrc;
+  elImg.src = pageData.imgSrc;
 }
-function renderPage(data, fitHeight) {
-  if (!UI.elCounter) {
-    return;
-  }
-  UI.elCounter.textContent = data.counterText;
-  UI.elBottomCounter.textContent = data.counterText;
-  UI.elFileInfo.textContent = data.fileInfo;
-  UI.elGallery.href = data.galleryHref;
-  UI.elPrev.className = data.prevHref ? "" : "disabled";
-  UI.elPrev.dataset.href = data.prevHref ?? "";
-  UI.elNext.className = data.nextHref ? "" : "disabled";
-  UI.elNext.dataset.href = data.nextHref ?? "";
-  displayImage(data);
+function renderPage(ui, data, fitHeight) {
+  ui.elCounter.textContent = data.counterText;
+  ui.elFileInfo.textContent = data.fileInfo;
+  ui.elGallery.href = data.galleryHref;
+  document.title = `${data.counterText} - E-Hentai`;
+  ui.elPrev.className = data.prevHref ? "" : "disabled";
+  ui.elPrev.dataset.href = data.prevHref ?? "";
+  ui.elNext.className = data.nextHref ? "" : "disabled";
+  ui.elNext.dataset.href = data.nextHref ?? "";
+  displayImage(ui.elImg, data);
   history.pushState({ viewerUrl: data.viewerUrl }, "", data.viewerUrl);
   if (!fitHeight) {
     window.scrollTo(0, 0);
   }
+  log("rendered", data.counterText);
 }
 
 // src/main.ts
 document.documentElement.style.cssText = "visibility:hidden!important;background:#111!important";
-new MutationObserver((mutations, obs) => {
-  for (const { addedNodes } of mutations) {
-    for (const node of addedNodes) {
-      if (node.nodeName === "SCRIPT") {
-        node.remove();
-      }
-    }
-  }
-  if (document.readyState === "interactive" || document.readyState === "complete") {
-    obs.disconnect();
-  }
-}).observe(document.documentElement, { childList: true, subtree: true });
 let pendingNav = null;
 let isNavigating = false;
 let fitHeight = true;
+let ui;
 async function navigateTo(url) {
   if (!url) {
     return;
@@ -283,7 +293,7 @@ async function navigateTo(url) {
     isNavigating = true;
     try {
       const data = await fetchViewerPage(target);
-      renderPage(data, fitHeight);
+      renderPage(ui, data, fitHeight);
       prefetchBoth(data);
     } catch (e) {
       warn("navigation failed", target, e);
@@ -292,11 +302,12 @@ async function navigateTo(url) {
   }
 }
 document.addEventListener("DOMContentLoaded", () => {
+  log("DOMContentLoaded");
   const initData = parseViewerDoc(document, location.href);
   pageCache.set(location.href, initData);
-  injectShell(initData);
+  ui = injectShell(initData);
   applyMode(fitHeight);
-  renderPage(initData, fitHeight);
+  renderPage(ui, initData, fitHeight);
   prefetchBoth(initData);
   document.documentElement.style.cssText = "";
   log("SPA ready");
@@ -304,14 +315,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const url = e.state?.viewerUrl ?? location.href;
     const data = pageCache.get(url);
     if (data) {
-      renderPage(data, fitHeight);
+      renderPage(ui, data, fitHeight);
       prefetchBoth(data);
     } else {
       navigateTo(url);
     }
   });
-  UI.elPrev?.addEventListener("click", () => navigateTo(UI.elPrev?.dataset.href));
-  UI.elNext?.addEventListener("click", () => navigateTo(UI.elNext?.dataset.href));
+  ui.elPrev.addEventListener("click", () => navigateTo(ui.elPrev.dataset.href));
+  ui.elNext.addEventListener("click", () => navigateTo(ui.elNext.dataset.href));
   document.getElementById("hud-fit")?.addEventListener("click", () => {
     fitHeight = !fitHeight;
     applyMode(fitHeight);
@@ -346,13 +357,13 @@ document.addEventListener("DOMContentLoaded", () => {
       case "d":
       case "D":
         e.preventDefault();
-        navigateTo(UI.elNext?.dataset.href);
+        navigateTo(ui.elNext.dataset.href);
         break;
       case "ArrowLeft":
       case "a":
       case "A":
         e.preventDefault();
-        navigateTo(UI.elPrev?.dataset.href);
+        navigateTo(ui.elPrev.dataset.href);
         break;
     }
   });
