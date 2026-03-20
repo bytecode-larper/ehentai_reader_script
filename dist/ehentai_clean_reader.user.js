@@ -13,6 +13,14 @@
 // ==/UserScript==
 
 // src/config.ts
+const DEFAULT_KEYMAP = {
+  next: ["D", "ARROWRIGHT"],
+  prev: ["A", "ARROWLEFT"],
+  fit: ["F"],
+  gallery: ["Q"],
+  up: ["W", "ARROWUP"],
+  down: ["S", "ARROWDOWN"],
+};
 const DEFAULT_SETTINGS = {
   fitHeight: true,
   debug: true,
@@ -20,15 +28,28 @@ const DEFAULT_SETTINGS = {
   prefetchCount: 2,
   maxNlRetry: 4,
   imgCacheLimit: 20,
+  keymap: DEFAULT_KEYMAP,
 };
-const SETTINGS = {
-  ...DEFAULT_SETTINGS,
-  fitHeight: GM_getValue("defaultFitHeight", DEFAULT_SETTINGS.fitHeight),
-  debug: GM_getValue("debug", DEFAULT_SETTINGS.debug),
-};
+function loadSettings() {
+  const settings = {
+    ...DEFAULT_SETTINGS,
+    fitHeight: GM_getValue("defaultFitHeight", DEFAULT_SETTINGS.fitHeight),
+    debug: GM_getValue("debug", DEFAULT_SETTINGS.debug),
+    keymap: GM_getValue("keymap", DEFAULT_SETTINGS.keymap),
+  };
+  if (!GM_getValue("keymap")) {
+    GM_setValue("keymap", DEFAULT_KEYMAP);
+  }
+  return settings;
+}
+const SETTINGS = loadSettings();
 const TAG = "[EH-Reader]";
 const log = (...a) => SETTINGS.debug && console.log(TAG, ...a);
 const warn = (...a) => SETTINGS.debug && console.warn(TAG, ...a);
+function isKey(e, action) {
+  const k = e.key.toUpperCase();
+  return SETTINGS.keymap[action].includes(k);
+}
 function registerMenuCommands(onUpdate) {
   GM_registerMenuCommand(
     `Default Mode: ${SETTINGS.fitHeight ? "Fit-Height" : "Natural-Width"}`,
@@ -43,6 +64,12 @@ function registerMenuCommands(onUpdate) {
     SETTINGS.debug = !SETTINGS.debug;
     GM_setValue("debug", SETTINGS.debug);
     location.reload();
+  });
+  GM_registerMenuCommand("Reset Keymap to Defaults", () => {
+    if (confirm("Reset all keys to defaults (WASD/Arrows/F/Q)?")) {
+      GM_setValue("keymap", DEFAULT_KEYMAP);
+      location.reload();
+    }
   });
 }
 
@@ -692,14 +719,14 @@ class ZoomController {
       this.img.classList.remove("no-transition");
     }
   }
-  handleKey(key, isFitHeight) {
+  handleKey(e, isFitHeight) {
     if (isFitHeight && this.zoomLevel > 1) {
-      if (key === "ARROWUP" || key === "W") {
+      if (isKey(e, "up")) {
         this.panY += SETTINGS.scrollStep;
         this.updateTransform();
         return true;
       }
-      if (key === "ARROWDOWN" || key === "S") {
+      if (isKey(e, "down")) {
         this.panY -= SETTINGS.scrollStep;
         this.updateTransform();
         return true;
@@ -804,8 +831,8 @@ function init() {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
       return;
     }
-    const k = e.key.toUpperCase();
     if (e.ctrlKey) {
+      const k = e.key.toUpperCase();
       if (k === "=" || k === "+" || e.key === "+") {
         e.preventDefault();
         zoom.updateZoom(0.1, currentFitHeight);
@@ -826,43 +853,32 @@ function init() {
       window.clearTimeout(mouseTimer);
     }
     mouseTimer = window.setTimeout(hideCursor, 3000);
-    if (zoom.handleKey(k, currentFitHeight)) {
+    if (zoom.handleKey(e, currentFitHeight)) {
       return;
     }
-    switch (k) {
-      case "F":
-        currentFitHeight = !currentFitHeight;
-        zoom.updateZoom(null, currentFitHeight);
-        applyMode(currentFitHeight);
-        showToast(`MODE: ${currentFitHeight ? "FIT HEIGHT" : "NATURAL WIDTH"}`);
-        break;
-      case "U":
-        location.href = ui.elGallery.href;
-        break;
-      case "ARROWUP":
-      case "W":
-        if (!currentFitHeight) {
-          e.preventDefault();
-          window.scrollBy(0, -SETTINGS.scrollStep);
-        }
-        break;
-      case "ARROWDOWN":
-      case "S":
-        if (!currentFitHeight) {
-          e.preventDefault();
-          window.scrollBy(0, SETTINGS.scrollStep);
-        }
-        break;
-      case "ARROWRIGHT":
-      case "D":
+    if (isKey(e, "fit")) {
+      currentFitHeight = !currentFitHeight;
+      zoom.updateZoom(null, currentFitHeight);
+      applyMode(currentFitHeight);
+      showToast(`MODE: ${currentFitHeight ? "FIT HEIGHT" : "NATURAL WIDTH"}`);
+    } else if (isKey(e, "gallery")) {
+      location.href = ui.elGallery.href;
+    } else if (isKey(e, "up")) {
+      if (!currentFitHeight) {
         e.preventDefault();
-        navigateTo(reader?.dataset.next);
-        break;
-      case "ARROWLEFT":
-      case "A":
+        window.scrollBy(0, -SETTINGS.scrollStep);
+      }
+    } else if (isKey(e, "down")) {
+      if (!currentFitHeight) {
         e.preventDefault();
-        navigateTo(reader?.dataset.prev);
-        break;
+        window.scrollBy(0, SETTINGS.scrollStep);
+      }
+    } else if (isKey(e, "next")) {
+      e.preventDefault();
+      navigateTo(reader?.dataset.next);
+    } else if (isKey(e, "prev")) {
+      e.preventDefault();
+      navigateTo(reader?.dataset.prev);
     }
   });
 }

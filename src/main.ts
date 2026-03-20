@@ -2,7 +2,7 @@ import { parseViewerDoc } from "./parser";
 import { fetchViewerPage, prefetchBoth, pageCache } from "./network";
 import { injectShell, renderPage, applyMode, showToast } from "./ui";
 import type { UIRefs } from "./ui";
-import { log, warn, SETTINGS, registerMenuCommands } from "./config";
+import { log, warn, SETTINGS, registerMenuCommands, isKey } from "./config";
 import { ZoomController } from "./zoom";
 
 document.documentElement.style.cssText = "visibility:hidden!important;background:#111!important";
@@ -94,9 +94,9 @@ function init() {
 
   document.addEventListener("keydown", (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-    const k = e.key.toUpperCase();
 
     if (e.ctrlKey) {
+      const k = e.key.toUpperCase();
       if (k === "=" || k === "+" || e.key === "+") {
         e.preventDefault();
         zoom.updateZoom(0.1, currentFitHeight);
@@ -117,42 +117,31 @@ function init() {
     if (mouseTimer) window.clearTimeout(mouseTimer);
     mouseTimer = window.setTimeout(hideCursor, 3000);
 
-    if (zoom.handleKey(k, currentFitHeight)) return;
+    if (zoom.handleKey(e, currentFitHeight)) return;
 
-    switch (k) {
-      case "F":
-        currentFitHeight = !currentFitHeight;
-        zoom.updateZoom(null, currentFitHeight);
-        applyMode(currentFitHeight);
-        showToast(`MODE: ${currentFitHeight ? "FIT HEIGHT" : "NATURAL WIDTH"}`);
-        break;
-      case "U":
-        location.href = ui.elGallery.href;
-        break;
-      case "ARROWUP":
-      case "W":
-        if (!currentFitHeight) {
-          e.preventDefault();
-          window.scrollBy(0, -SETTINGS.scrollStep);
-        }
-        break;
-      case "ARROWDOWN":
-      case "S":
-        if (!currentFitHeight) {
-          e.preventDefault();
-          window.scrollBy(0, SETTINGS.scrollStep);
-        }
-        break;
-      case "ARROWRIGHT":
-      case "D":
+    if (isKey(e, "fit")) {
+      currentFitHeight = !currentFitHeight;
+      zoom.updateZoom(null, currentFitHeight);
+      applyMode(currentFitHeight);
+      showToast(`MODE: ${currentFitHeight ? "FIT HEIGHT" : "NATURAL WIDTH"}`);
+    } else if (isKey(e, "gallery")) {
+      location.href = ui.elGallery.href;
+    } else if (isKey(e, "up")) {
+      if (!currentFitHeight) {
         e.preventDefault();
-        navigateTo(reader?.dataset.next);
-        break;
-      case "ARROWLEFT":
-      case "A":
+        window.scrollBy(0, -SETTINGS.scrollStep);
+      }
+    } else if (isKey(e, "down")) {
+      if (!currentFitHeight) {
         e.preventDefault();
-        navigateTo(reader?.dataset.prev);
-        break;
+        window.scrollBy(0, SETTINGS.scrollStep);
+      }
+    } else if (isKey(e, "next")) {
+      e.preventDefault();
+      navigateTo(reader?.dataset.next);
+    } else if (isKey(e, "prev")) {
+      e.preventDefault();
+      navigateTo(reader?.dataset.prev);
     }
   });
 }

@@ -1,4 +1,4 @@
-import { SETTINGS } from "./config";
+import { SETTINGS, isKey } from "./config";
 import { showToast } from "./ui";
 
 export class ZoomController {
@@ -117,14 +117,14 @@ export class ZoomController {
     }
   }
 
-  public handleKey(key: string, isFitHeight: boolean): boolean {
+  public handleKey(e: KeyboardEvent, isFitHeight: boolean): boolean {
     if (isFitHeight && this.zoomLevel > 1.0) {
-      if (key === "ARROWUP" || key === "W") {
+      if (isKey(e, "up")) {
         this.panY += SETTINGS.scrollStep;
         this.updateTransform();
         return true;
       }
-      if (key === "ARROWDOWN" || key === "S") {
+      if (isKey(e, "down")) {
         this.panY -= SETTINGS.scrollStep;
         this.updateTransform();
         return true;

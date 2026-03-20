@@ -23,6 +23,15 @@ export interface PageData {
   nlToken: string | null;
 }
 
+export interface KeyMap {
+  next: string[];
+  prev: string[];
+  fit: string[];
+  gallery: string[];
+  up: string[];
+  down: string[];
+}
+
 export interface UserSettings {
   fitHeight: boolean;
   debug: boolean;
@@ -30,4 +39,5 @@ export interface UserSettings {
   prefetchCount: number;
   maxNlRetry: number;
   imgCacheLimit: number;
+  keymap: KeyMap;
 }
