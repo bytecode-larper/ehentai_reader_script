@@ -43,7 +43,6 @@ function parseViewerDoc(doc, viewerUrl) {
     [...doc.querySelectorAll("div, span, td")]
       .find((el) => /^\d+ \/ \d+$/.test(el.textContent?.trim() ?? ""))
       ?.textContent?.trim() ?? `${pageNum} / ?`;
-  const totalPages = parseInt(counterText.split("/")[1]?.trim() ?? "0", 10);
   const fileInfo = (() => {
     for (const el of doc.querySelector("#i2")?.querySelectorAll("div, span") ?? []) {
       const t = (el.textContent ?? "").trim();
@@ -61,7 +60,6 @@ function parseViewerDoc(doc, viewerUrl) {
     viewerUrl,
     pageNum,
     counterText,
-    totalPages,
     imgSrc,
     nextHref,
     prevHref,
@@ -84,6 +82,7 @@ const log = (...a) => CONFIG.DEBUG && console.log(TAG, ...a);
 const warn = (...a) => CONFIG.DEBUG && console.warn(TAG, ...a);
 
 // src/network.ts
+const PAGE_CACHE_LIMIT = 40;
 const pageCache = new Map();
 const imgCache = new Map();
 let preloadContainer = null;
@@ -125,6 +124,9 @@ async function fetchViewerPage(viewerUrl) {
   const res = await fetch(viewerUrl, { credentials: "include" });
   const html = await res.text();
   const data = parseViewerDoc(new DOMParser().parseFromString(html, "text/html"), viewerUrl);
+  if (pageCache.size >= PAGE_CACHE_LIMIT) {
+    pageCache.delete(pageCache.keys().next().value);
+  }
   pageCache.set(viewerUrl, data);
   log("cached viewer", viewerUrl, "| img:", data.imgSrc, "| nl:", data.nlToken);
   return data;
@@ -156,10 +158,12 @@ async function prefetchDirection(data, getNext) {
       break;
     }
     const next = await fetchViewerPage(href).catch(() => null);
-    if (!next?.imgSrc) {
+    if (!next) {
       break;
     }
-    preloadImage(next.imgSrc);
+    if (next.imgSrc) {
+      preloadImage(next.imgSrc);
+    }
     cur = next;
   }
 }
@@ -396,7 +400,7 @@ function displayImage(elImg, pageData, retryCount = 0) {
   };
   elImg.src = pageData.imgSrc;
 }
-function renderPage(ui, data, fitHeight) {
+function renderPage(ui, data, fitHeight, isInitial = false) {
   ui.elCounter.textContent = data.counterText;
   ui.elFileInfo.textContent = data.fileInfo;
   ui.elGallery.href = data.galleryHref;
@@ -406,7 +410,9 @@ function renderPage(ui, data, fitHeight) {
   ui.elNext.className = data.nextHref ? "" : "disabled";
   ui.elNext.dataset.href = data.nextHref ?? "";
   displayImage(ui.elImg, data);
-  history.pushState({ viewerUrl: data.viewerUrl }, "", data.viewerUrl);
+  if (!isInitial) {
+    history.pushState({ viewerUrl: data.viewerUrl }, "", data.viewerUrl);
+  }
   if (!fitHeight) {
     window.scrollTo(0, 0);
   }
@@ -447,7 +453,7 @@ function init() {
   pageCache.set(location.href, initData);
   ui = injectShell(initData);
   applyMode(fitHeight);
-  renderPage(ui, initData, fitHeight);
+  renderPage(ui, initData, fitHeight, true);
   prefetchBoth(initData);
   document.documentElement.style.cssText = "";
   log("SPA ready");

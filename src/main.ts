@@ -39,7 +39,7 @@ function init() {
 
   ui = injectShell(initData);
   applyMode(fitHeight);
-  renderPage(ui, initData, fitHeight);
+  renderPage(ui, initData, fitHeight, true);
   prefetchBoth(initData);
 
   // Always clear — even if DOMContentLoaded already fired or was missed

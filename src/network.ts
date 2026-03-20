@@ -2,6 +2,8 @@ import { CONFIG, log, warn } from "./config";
 import { parseViewerDoc } from "./parser";
 import type { PageData } from "./types";
 
+export const PAGE_CACHE_LIMIT = 40;
+
 export const pageCache = new Map<string, PageData>();
 export const imgCache = new Map<string, HTMLImageElement>();
 let preloadContainer: HTMLDivElement | null = null;
@@ -44,6 +46,9 @@ export async function fetchViewerPage(viewerUrl: string): Promise<PageData> {
   const res = await fetch(viewerUrl, { credentials: "include" });
   const html = await res.text();
   const data = parseViewerDoc(new DOMParser().parseFromString(html, "text/html"), viewerUrl);
+  if (pageCache.size >= PAGE_CACHE_LIMIT) {
+    pageCache.delete(pageCache.keys().next().value as string);
+  }
   pageCache.set(viewerUrl, data);
   log("cached viewer", viewerUrl, "| img:", data.imgSrc, "| nl:", data.nlToken);
   return data;
@@ -76,8 +81,8 @@ async function prefetchDirection(
     const href = getNext(cur);
     if (!href) break;
     const next = await fetchViewerPage(href).catch(() => null);
-    if (!next?.imgSrc) break;
-    preloadImage(next.imgSrc);
+    if (!next) break;
+    if (next.imgSrc) preloadImage(next.imgSrc);
     cur = next;
   }
 }

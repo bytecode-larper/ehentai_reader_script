@@ -40,8 +40,6 @@ export function parseViewerDoc(doc: Document | HTMLElement, viewerUrl: string): 
       .find((el) => /^\d+ \/ \d+$/.test(el.textContent?.trim() ?? ""))
       ?.textContent?.trim() ?? `${pageNum} / ?`;
 
-  const totalPages = parseInt(counterText.split("/")[1]?.trim() ?? "0", 10);
-
   const fileInfo = (() => {
     for (const el of doc.querySelector("#i2")?.querySelectorAll("div, span") ?? []) {
       const t = (el.textContent ?? "").trim();
@@ -57,7 +55,6 @@ export function parseViewerDoc(doc: Document | HTMLElement, viewerUrl: string): 
     viewerUrl,
     pageNum,
     counterText,
-    totalPages,
     imgSrc,
     nextHref,
     prevHref,

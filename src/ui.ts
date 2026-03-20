@@ -62,7 +62,12 @@ export function displayImage(elImg: HTMLImageElement, pageData: PageData, retryC
   elImg.src = pageData.imgSrc;
 }
 
-export function renderPage(ui: UIRefs, data: PageData, fitHeight: boolean): void {
+export function renderPage(
+  ui: UIRefs,
+  data: PageData,
+  fitHeight: boolean,
+  isInitial = false,
+): void {
   ui.elCounter.textContent = data.counterText;
   ui.elFileInfo.textContent = data.fileInfo;
   ui.elGallery.href = data.galleryHref;
@@ -74,7 +79,7 @@ export function renderPage(ui: UIRefs, data: PageData, fitHeight: boolean): void
   ui.elNext.dataset.href = data.nextHref ?? "";
 
   displayImage(ui.elImg, data);
-  history.pushState({ viewerUrl: data.viewerUrl }, "", data.viewerUrl);
+  if (!isInitial) history.pushState({ viewerUrl: data.viewerUrl }, "", data.viewerUrl);
   if (!fitHeight) window.scrollTo(0, 0);
   log("rendered", data.counterText);
 }
