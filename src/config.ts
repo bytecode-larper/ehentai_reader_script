@@ -11,7 +11,7 @@ const DEFAULT_KEYMAP: KeyMap = {
 
 const DEFAULT_SETTINGS: UserSettings = {
   fitHeight: true,
-  debug: true,
+  debug: false,
   scrollStep: 220,
   prefetchCount: 2,
   maxNlRetry: 4,

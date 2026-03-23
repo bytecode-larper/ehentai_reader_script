@@ -3,7 +3,7 @@ import { showToast } from "./ui";
 
 export class ZoomController {
   private zoomLevel = 1.0;
-  private zoomSnapTimer: any = null;
+  private zoomSnapTimer: ReturnType<typeof window.setTimeout> | null = null;
   private panX = 0;
   private panY = 0;
   private isDragging = false;
@@ -55,17 +55,21 @@ export class ZoomController {
   }
 
   public updateZoom(delta: number | null, isFitHeight: boolean) {
-    if (delta !== null && !isFitHeight) return;
+    const isReset = delta === null;
+    if (!isReset && !isFitHeight) {
+      showToast("ZOOM: fit-height only");
+      return;
+    }
 
-    if (delta === null) {
+    if (isReset) {
       this.reset();
     } else {
-      this.zoomLevel = Math.max(0.7, Math.min(5.0, this.zoomLevel + delta));
+      this.zoomLevel = Math.max(0.7, Math.min(5.0, this.zoomLevel + delta!));
       this.updateTransform();
       showToast(`ZOOM: ${Math.round(this.zoomLevel * 100)}%`);
     }
 
-    if (this.zoomSnapTimer) window.clearTimeout(this.zoomSnapTimer);
+    if (this.zoomSnapTimer !== null) window.clearTimeout(this.zoomSnapTimer);
     if (this.zoomLevel < 1.0) {
       this.zoomSnapTimer = window.setTimeout(() => {
         this.reset();
@@ -78,6 +82,7 @@ export class ZoomController {
     this.zoomLevel = 1.0;
     this.panX = 0;
     this.panY = 0;
+    this.hasMoved = false;
     this.updateTransform();
   }
 

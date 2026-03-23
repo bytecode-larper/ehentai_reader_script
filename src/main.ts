@@ -81,11 +81,11 @@ function init() {
     }
   });
 
-  let mouseTimer: any = null;
+  let mouseTimer: ReturnType<typeof window.setTimeout> | null = null;
   const hideCursor = () => document.body.classList.add("no-cursor");
   const showCursor = () => {
     document.body.classList.remove("no-cursor");
-    if (mouseTimer) window.clearTimeout(mouseTimer);
+    if (mouseTimer !== null) window.clearTimeout(mouseTimer);
     mouseTimer = window.setTimeout(hideCursor, 3000);
   };
   window.addEventListener("mousemove", showCursor);
@@ -114,7 +114,7 @@ function init() {
       }
     }
 
-    if (mouseTimer) window.clearTimeout(mouseTimer);
+    if (mouseTimer !== null) window.clearTimeout(mouseTimer);
     mouseTimer = window.setTimeout(hideCursor, 3000);
 
     if (zoom.handleKey(e, currentFitHeight)) return;

@@ -75,17 +75,34 @@ function parseTitle(raw: string): ParsedTitle {
   const trailing: TitleMetadata[] = [];
 
   const langRegex = /\[(English|Japanese|Chinese|Korean|Thai|Vietnamese|French|German|Italian|Portuguese|Russian|Spanish)/i;
+  const NON_ARTIST_TAGS = new Set([
+    "digital",
+    "colorized",
+    "decensored",
+    "incomplete",
+    "raw",
+    "translated",
+    "edited",
+    "webtoon",
+    "doujinshi",
+    "manga",
+  ]);
 
   while (true) {
     const match = text.match(/^(\([^)]+\)|\[[^\]]+\])\s*/);
     if (!match || !match[1]) break;
     const m = match[1];
-    
-    let type: TitleMetadata["type"] = "artist";
+
+    let type: TitleMetadata["type"] = "tag";
     if (m.startsWith("(")) {
       type = "event";
     } else if (m.toLowerCase().includes("anthology")) {
       type = "anthology";
+    } else {
+      const inner = m.slice(1, -1).toLowerCase();
+      if (!NON_ARTIST_TAGS.has(inner)) {
+        type = "artist";
+      }
     }
 
     leading.push({ text: m, type });

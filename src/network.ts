@@ -39,13 +39,16 @@ export function preloadImage(src: string): HTMLImageElement {
   return img;
 }
 
-export async function fetchViewerPage(viewerUrl: string): Promise<PageData> {
+export async function fetchViewerPage(
+  viewerUrl: string,
+  signal?: AbortSignal,
+): Promise<PageData> {
   if (pageCache.has(viewerUrl)) {
     log("viewer cache hit", viewerUrl);
     return pageCache.get(viewerUrl)!;
   }
   log("fetching viewer →", viewerUrl);
-  const res = await fetch(viewerUrl, { credentials: "include" });
+  const res = await fetch(viewerUrl, { credentials: "include", signal });
   const html = await res.text();
   const data = parseViewerDoc(new DOMParser().parseFromString(html, "text/html"), viewerUrl);
   if (pageCache.size >= PAGE_CACHE_LIMIT) {
@@ -77,19 +80,30 @@ export async function fetchNlRetry(pageData: PageData): Promise<PageData | null>
 async function prefetchDirection(
   data: PageData,
   getNext: (d: PageData) => string | null,
+  signal?: AbortSignal,
 ): Promise<void> {
   let cur = data;
   for (let i = 0; i < SETTINGS.prefetchCount; i++) {
     const href = getNext(cur);
     if (!href) break;
-    const next = await fetchViewerPage(href).catch(() => null);
+    const next = await fetchViewerPage(href, signal).catch(() => null);
     if (!next) break;
     if (next.imgSrc) preloadImage(next.imgSrc);
     cur = next;
   }
 }
 
+let prefetchAbortController: AbortController | null = null;
+
 export function prefetchBoth(data: PageData): void {
-  prefetchDirection(data, (d) => d.nextHref).catch((e) => warn("prefetch forward error", e));
-  prefetchDirection(data, (d) => d.prevHref).catch((e) => warn("prefetch backward error", e));
+  prefetchAbortController?.abort();
+  prefetchAbortController = new AbortController();
+  const signal = prefetchAbortController.signal;
+
+  prefetchDirection(data, (d) => d.nextHref, signal).catch(
+    (e) => !signal.aborted && warn("prefetch forward error", e),
+  );
+  prefetchDirection(data, (d) => d.prevHref, signal).catch(
+    (e) => !signal.aborted && warn("prefetch backward error", e),
+  );
 }

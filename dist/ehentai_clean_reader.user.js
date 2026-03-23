@@ -26,7 +26,7 @@ const DEFAULT_KEYMAP = {
 };
 const DEFAULT_SETTINGS = {
   fitHeight: true,
-  debug: true,
+  debug: false,
   scrollStep: 220,
   prefetchCount: 2,
   maxNlRetry: 4,
@@ -146,17 +146,34 @@ function parseTitle(raw) {
   const trailing = [];
   const langRegex =
     /\[(English|Japanese|Chinese|Korean|Thai|Vietnamese|French|German|Italian|Portuguese|Russian|Spanish)/i;
+  const NON_ARTIST_TAGS = new Set([
+    "digital",
+    "colorized",
+    "decensored",
+    "incomplete",
+    "raw",
+    "translated",
+    "edited",
+    "webtoon",
+    "doujinshi",
+    "manga",
+  ]);
   while (true) {
     const match = text.match(/^(\([^)]+\)|\[[^\]]+\])\s*/);
     if (!match || !match[1]) {
       break;
     }
     const m = match[1];
-    let type = "artist";
+    let type = "tag";
     if (m.startsWith("(")) {
       type = "event";
     } else if (m.toLowerCase().includes("anthology")) {
       type = "anthology";
+    } else {
+      const inner = m.slice(1, -1).toLowerCase();
+      if (!NON_ARTIST_TAGS.has(inner)) {
+        type = "artist";
+      }
     }
     leading.push({ text: m, type });
     text = text.slice(match[0].length).trim();
@@ -221,13 +238,13 @@ function preloadImage(src) {
   log("preloading", src);
   return img;
 }
-async function fetchViewerPage(viewerUrl) {
+async function fetchViewerPage(viewerUrl, signal) {
   if (pageCache.has(viewerUrl)) {
     log("viewer cache hit", viewerUrl);
     return pageCache.get(viewerUrl);
   }
   log("fetching viewer →", viewerUrl);
-  const res = await fetch(viewerUrl, { credentials: "include" });
+  const res = await fetch(viewerUrl, { credentials: "include", signal });
   const html = await res.text();
   const data = parseViewerDoc(new DOMParser().parseFromString(html, "text/html"), viewerUrl);
   if (pageCache.size >= PAGE_CACHE_LIMIT) {
@@ -256,14 +273,14 @@ async function fetchNlRetry(pageData) {
     return null;
   }
 }
-async function prefetchDirection(data, getNext) {
+async function prefetchDirection(data, getNext, signal) {
   let cur = data;
   for (let i = 0; i < SETTINGS.prefetchCount; i++) {
     const href = getNext(cur);
     if (!href) {
       break;
     }
-    const next = await fetchViewerPage(href).catch(() => null);
+    const next = await fetchViewerPage(href, signal).catch(() => null);
     if (!next) {
       break;
     }
@@ -273,9 +290,17 @@ async function prefetchDirection(data, getNext) {
     cur = next;
   }
 }
+let prefetchAbortController = null;
 function prefetchBoth(data) {
-  prefetchDirection(data, (d) => d.nextHref).catch((e) => warn("prefetch forward error", e));
-  prefetchDirection(data, (d) => d.prevHref).catch((e) => warn("prefetch backward error", e));
+  prefetchAbortController?.abort();
+  prefetchAbortController = new AbortController();
+  const signal = prefetchAbortController.signal;
+  prefetchDirection(data, (d) => d.nextHref, signal).catch(
+    (e) => !signal.aborted && warn("prefetch forward error", e)
+  );
+  prefetchDirection(data, (d) => d.prevHref, signal).catch(
+    (e) => !signal.aborted && warn("prefetch backward error", e)
+  );
 }
 
 // src/shell.html
@@ -660,17 +685,19 @@ class ZoomController {
         : `translate(${this.panX}px, ${this.panY}px) scale(${this.zoomLevel})`;
   }
   updateZoom(delta, isFitHeight) {
-    if (delta !== null && !isFitHeight) {
+    const isReset = delta === null;
+    if (!isReset && !isFitHeight) {
+      showToast("ZOOM: fit-height only");
       return;
     }
-    if (delta === null) {
+    if (isReset) {
       this.reset();
     } else {
       this.zoomLevel = Math.max(0.7, Math.min(5, this.zoomLevel + delta));
       this.updateTransform();
       showToast(`ZOOM: ${Math.round(this.zoomLevel * 100)}%`);
     }
-    if (this.zoomSnapTimer) {
+    if (this.zoomSnapTimer !== null) {
       window.clearTimeout(this.zoomSnapTimer);
     }
     if (this.zoomLevel < 1) {
@@ -684,6 +711,7 @@ class ZoomController {
     this.zoomLevel = 1;
     this.panX = 0;
     this.panY = 0;
+    this.hasMoved = false;
     this.updateTransform();
   }
   onMouseDown(e) {
@@ -822,7 +850,7 @@ function init() {
   const hideCursor = () => document.body.classList.add("no-cursor");
   const showCursor = () => {
     document.body.classList.remove("no-cursor");
-    if (mouseTimer) {
+    if (mouseTimer !== null) {
       window.clearTimeout(mouseTimer);
     }
     mouseTimer = window.setTimeout(hideCursor, 3000);
@@ -852,7 +880,7 @@ function init() {
         return;
       }
     }
-    if (mouseTimer) {
+    if (mouseTimer !== null) {
       window.clearTimeout(mouseTimer);
     }
     mouseTimer = window.setTimeout(hideCursor, 3000);

@@ -60,10 +60,14 @@ const shouldServe = args.includes("--serve");
 
 if (shouldWatch) {
   console.log("👀 Watching for changes in src/...");
-  watch(join(import.meta.dir, "src"), { recursive: true }, async (event, filename) => {
-    if (filename) {
+  let buildTimeout: ReturnType<typeof setTimeout> | null = null;
+  watch(join(import.meta.dir, "src"), { recursive: true }, (event, filename) => {
+    if (!filename) return;
+    if (buildTimeout) clearTimeout(buildTimeout);
+    buildTimeout = setTimeout(async () => {
+      console.log(`[${new Date().toLocaleTimeString()}] 🔄 Change: ${filename}`);
       await build();
-    }
+    }, 150);
   });
 }
 
