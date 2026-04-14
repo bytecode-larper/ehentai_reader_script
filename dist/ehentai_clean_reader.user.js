@@ -628,7 +628,7 @@ function renderPage(ui, data, fitHeight, isInitial = false) {
   }
   displayImage(ui.elImg, data);
   if (!isInitial) {
-    history.pushState({ viewerUrl: data.viewerUrl }, "", data.viewerUrl);
+    history.replaceState({ viewerUrl: data.viewerUrl }, "", data.viewerUrl);
   }
   if (!fitHeight) {
     window.scrollTo(0, 0);

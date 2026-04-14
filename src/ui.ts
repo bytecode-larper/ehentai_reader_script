@@ -122,7 +122,7 @@ export function renderPage(
   }
 
   displayImage(ui.elImg, data);
-  if (!isInitial) history.pushState({ viewerUrl: data.viewerUrl }, "", data.viewerUrl);
+  if (!isInitial) history.replaceState({ viewerUrl: data.viewerUrl }, "", data.viewerUrl);
   if (!fitHeight) window.scrollTo(0, 0);
   log("rendered", data.counterText);
 }
