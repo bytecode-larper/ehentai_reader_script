@@ -50,12 +50,13 @@ export async function fetchViewerPage(
   log("fetching viewer →", viewerUrl);
   const res = await fetch(viewerUrl, { credentials: "include", signal });
   const html = await res.text();
-  const data = parseViewerDoc(new DOMParser().parseFromString(html, "text/html"), viewerUrl);
+  const data = parseViewerDoc(new DOMParser().parseFromString(html, "text/html"), res.url);
   if (pageCache.size >= PAGE_CACHE_LIMIT) {
     pageCache.delete(pageCache.keys().next().value as string);
   }
-  pageCache.set(viewerUrl, data);
-  log("cached viewer", viewerUrl, "| img:", data.imgSrc, "| nl:", data.nlToken);
+  pageCache.set(data.viewerUrl, data);
+  if (viewerUrl !== data.viewerUrl) pageCache.set(viewerUrl, data);
+  log("cached viewer", data.viewerUrl, "| img:", data.imgSrc, "| nl:", data.nlToken);
   return data;
 }
 

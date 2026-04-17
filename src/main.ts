@@ -59,6 +59,8 @@ function init() {
 
   window.addEventListener("popstate", (e) => {
     const url = e.state?.viewerUrl ?? location.href;
+    if (!url.includes("/s/")) return;
+
     const data = pageCache.get(url);
     if (data) {
       zoom.reset();

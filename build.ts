@@ -5,7 +5,7 @@ import { join } from "path";
 const header = `// ==UserScript==
 // @name         E-Hentai Clean Reader
 // @namespace    https://github.com/bytecode-larper/
-// @version      2.3.0
+// @version      2.3.1
 // @description  A modern, responsive, and customizable viewer for E-Hentai and ExHentai. Features include SPA-style navigation, advanced zooming, auto-hide cursor, and prefetching for a seamless reading experience.
 // @author       bytecode-larper
 // @icon         https://api.iconify.design/ph/book-open-bold.svg

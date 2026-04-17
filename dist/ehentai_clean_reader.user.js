@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         E-Hentai Clean Reader
 // @namespace    https://github.com/bytecode-larper/
-// @version      2.3.0
+// @version      2.3.1
 // @description  A modern, responsive, and customizable viewer for E-Hentai and ExHentai. Features include SPA-style navigation, advanced zooming, auto-hide cursor, and prefetching for a seamless reading experience.
 // @author       bytecode-larper
 // @icon         https://api.iconify.design/ph/book-open-bold.svg
@@ -246,12 +246,15 @@ async function fetchViewerPage(viewerUrl, signal) {
   log("fetching viewer →", viewerUrl);
   const res = await fetch(viewerUrl, { credentials: "include", signal });
   const html = await res.text();
-  const data = parseViewerDoc(new DOMParser().parseFromString(html, "text/html"), viewerUrl);
+  const data = parseViewerDoc(new DOMParser().parseFromString(html, "text/html"), res.url);
   if (pageCache.size >= PAGE_CACHE_LIMIT) {
     pageCache.delete(pageCache.keys().next().value);
   }
-  pageCache.set(viewerUrl, data);
-  log("cached viewer", viewerUrl, "| img:", data.imgSrc, "| nl:", data.nlToken);
+  pageCache.set(data.viewerUrl, data);
+  if (viewerUrl !== data.viewerUrl) {
+    pageCache.set(viewerUrl, data);
+  }
+  log("cached viewer", data.viewerUrl, "| img:", data.imgSrc, "| nl:", data.nlToken);
   return data;
 }
 async function fetchNlRetry(pageData) {
@@ -627,9 +630,7 @@ function renderPage(ui, data, fitHeight, isInitial = false) {
     reader.dataset.next = data.nextHref ?? "";
   }
   displayImage(ui.elImg, data);
-  if (!isInitial) {
-    history.replaceState({ viewerUrl: data.viewerUrl }, "", data.viewerUrl);
-  }
+  history.replaceState({ viewerUrl: data.viewerUrl }, "", data.viewerUrl);
   if (!fitHeight) {
     window.scrollTo(0, 0);
   }
@@ -821,6 +822,9 @@ function init() {
   log("SPA ready");
   window.addEventListener("popstate", (e) => {
     const url = e.state?.viewerUrl ?? location.href;
+    if (!url.includes("/s/")) {
+      return;
+    }
     const data = pageCache.get(url);
     if (data) {
       zoom.reset();
