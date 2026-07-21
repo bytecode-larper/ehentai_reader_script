@@ -15,9 +15,13 @@ let zoom: ZoomController;
 let currentFitHeight = SETTINGS.fitHeight;
 
 async function navigateTo(url: string | undefined | null): Promise<void> {
-  if (!url) return;
+  if (!url) {
+    return;
+  }
   pendingNav = url;
-  if (isNavigating) return;
+  if (isNavigating) {
+    return;
+  }
 
   while (pendingNav) {
     const target = pendingNav;
@@ -45,7 +49,7 @@ function init() {
   zoom = new ZoomController(document.getElementById("reader")!, ui.elImg, () => currentFitHeight);
 
   applyMode(currentFitHeight);
-  renderPage(ui, initData, currentFitHeight, true);
+  renderPage(ui, initData, currentFitHeight);
   prefetchBoth(initData);
 
   registerMenuCommands((newFit) => {
@@ -59,20 +63,28 @@ function init() {
 
   window.addEventListener("popstate", (e) => {
     const url = e.state?.viewerUrl ?? location.href;
-    if (!url.includes("/s/")) return;
+    if (!url.includes("/s/")) {
+      return;
+    }
 
     const data = pageCache.get(url);
     if (data) {
       zoom.reset();
       renderPage(ui, data, currentFitHeight);
       prefetchBoth(data);
-    } else navigateTo(url);
+    } else {
+      navigateTo(url);
+    }
   });
 
   const reader = document.getElementById("reader");
   reader?.addEventListener("click", (e) => {
-    if ((e.target as HTMLElement).closest("#hud, #page-info")) return;
-    if (zoom.wasPanned) return;
+    if ((e.target as HTMLElement).closest("#hud, #page-info")) {
+      return;
+    }
+    if (zoom.wasPanned) {
+      return;
+    }
 
     const x = e.clientX;
     const width = window.innerWidth;
@@ -87,7 +99,9 @@ function init() {
   const hideCursor = () => document.body.classList.add("no-cursor");
   const showCursor = () => {
     document.body.classList.remove("no-cursor");
-    if (mouseTimer !== null) window.clearTimeout(mouseTimer);
+    if (mouseTimer !== null) {
+      window.clearTimeout(mouseTimer);
+    }
     mouseTimer = window.setTimeout(hideCursor, 3000);
   };
   window.addEventListener("mousemove", showCursor);
@@ -95,7 +109,9 @@ function init() {
   showCursor();
 
   document.addEventListener("keydown", (e) => {
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      return;
+    }
 
     if (e.ctrlKey) {
       const k = e.key.toUpperCase();
@@ -116,10 +132,14 @@ function init() {
       }
     }
 
-    if (mouseTimer !== null) window.clearTimeout(mouseTimer);
+    if (mouseTimer !== null) {
+      window.clearTimeout(mouseTimer);
+    }
     mouseTimer = window.setTimeout(hideCursor, 3000);
 
-    if (zoom.handleKey(e, currentFitHeight)) return;
+    if (zoom.handleKey(e, currentFitHeight)) {
+      return;
+    }
 
     if (isKey(e, "fit")) {
       currentFitHeight = !currentFitHeight;

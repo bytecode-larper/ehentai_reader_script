@@ -39,8 +39,8 @@ function loadSettings(): UserSettings {
 export const SETTINGS = loadSettings();
 
 const TAG = "[EH-Reader]";
-export const log = (...a: any[]) => SETTINGS.debug && console.log(TAG, ...a);
-export const warn = (...a: any[]) => SETTINGS.debug && console.warn(TAG, ...a);
+export const log = (...a: unknown[]) => SETTINGS.debug && console.log(TAG, ...a);
+export const warn = (...a: unknown[]) => SETTINGS.debug && console.warn(TAG, ...a);
 
 export function isKey(e: KeyboardEvent, action: keyof KeyMap): boolean {
   const k = e.key.toUpperCase();
@@ -55,7 +55,7 @@ export function registerMenuCommands(onUpdate: (newFit: boolean) => void) {
       GM_setValue("defaultFitHeight", SETTINGS.fitHeight);
       onUpdate(SETTINGS.fitHeight);
       registerMenuCommands(onUpdate);
-    },
+    }
   );
 
   GM_registerMenuCommand(`Debug Mode: ${SETTINGS.debug ? "Enabled" : "Disabled"}`, () => {

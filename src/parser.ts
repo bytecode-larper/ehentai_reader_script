@@ -21,7 +21,9 @@ export function parseViewerDoc(doc: Document | HTMLElement, viewerUrl: string): 
 
   const nextHref = (() => {
     const byNum = hrefMatching(pageNum + 1);
-    if (byNum) return byNum;
+    if (byNum) {
+      return byNum;
+    }
     const i3 = (doc.querySelector("#i3 a") as HTMLAnchorElement | null)?.href;
     return i3 && i3 !== viewerUrl ? i3 : null;
   })();
@@ -42,7 +44,9 @@ export function parseViewerDoc(doc: Document | HTMLElement, viewerUrl: string): 
   const fileInfo = (() => {
     for (const el of doc.querySelector("#i2")?.querySelectorAll("div, span") ?? []) {
       const t = (el.textContent ?? "").trim();
-      if (/\d+ x \d+/.test(t) && t.includes("::")) return (t.split("\n")[0] ?? t).trim();
+      if (/\d+ x \d+/.test(t) && t.includes("::")) {
+        return (t.split("\n")[0] ?? t).trim();
+      }
     }
     return "";
   })();
@@ -74,7 +78,8 @@ function parseTitle(raw: string): ParsedTitle {
   const leading: TitleMetadata[] = [];
   const trailing: TitleMetadata[] = [];
 
-  const langRegex = /\[(English|Japanese|Chinese|Korean|Thai|Vietnamese|French|German|Italian|Portuguese|Russian|Spanish)/i;
+  const langRegex =
+    /\[(English|Japanese|Chinese|Korean|Thai|Vietnamese|French|German|Italian|Portuguese|Russian|Spanish)/i;
   const NON_ARTIST_TAGS = new Set([
     "digital",
     "colorized",
@@ -90,7 +95,9 @@ function parseTitle(raw: string): ParsedTitle {
 
   while (true) {
     const match = text.match(/^(\([^)]+\)|\[[^\]]+\])\s*/);
-    if (!match || !match[1]) break;
+    if (!match || !match[1]) {
+      break;
+    }
     const m = match[1];
 
     let type: TitleMetadata["type"] = "tag";
@@ -111,7 +118,9 @@ function parseTitle(raw: string): ParsedTitle {
 
   while (true) {
     const match = text.match(/\s*(\([^)]+\)|\[[^\]]+\])$/);
-    if (!match || !match[1]) break;
+    if (!match || !match[1]) {
+      break;
+    }
     const m = match[1];
 
     let type: TitleMetadata["type"] = "tag";
@@ -126,7 +135,7 @@ function parseTitle(raw: string): ParsedTitle {
   }
 
   const parts = text.split(/\s*\|\s*/);
-  
+
   return {
     leading,
     primary: parts[0] || "Untitled",

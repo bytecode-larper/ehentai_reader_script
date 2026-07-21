@@ -45,12 +45,16 @@ export function applyMode(fitHeight: boolean): void {
 let toastTimer: number | null = null;
 export function showToast(text: string): void {
   const el = document.getElementById("hud-toast");
-  if (!el) return;
-  
+  if (!el) {
+    return;
+  }
+
   el.textContent = text;
   el.classList.add("show");
 
-  if (toastTimer) clearTimeout(toastTimer);
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+  }
   toastTimer = window.setTimeout(() => {
     el.classList.remove("show");
   }, 1200);
@@ -75,7 +79,9 @@ export function displayImage(elImg: HTMLImageElement, pageData: PageData, retryC
       return;
     }
     const newData = await fetchNlRetry(pageData);
-    if (newData) displayImage(elImg, newData, retryCount + 1);
+    if (newData) {
+      displayImage(elImg, newData, retryCount + 1);
+    }
   };
   elImg.src = pageData.imgSrc;
 }
@@ -104,12 +110,7 @@ function renderTitle(title: ParsedTitle): string {
   `.trim();
 }
 
-export function renderPage(
-  ui: UIRefs,
-  data: PageData,
-  fitHeight: boolean,
-  isInitial = false,
-): void {
+export function renderPage(ui: UIRefs, data: PageData, fitHeight: boolean): void {
   ui.elTitle.innerHTML = renderTitle(data.galleryTitle);
   ui.elCounter.textContent = data.counterText;
   ui.elFileInfo.textContent = data.fileInfo;
@@ -123,6 +124,8 @@ export function renderPage(
 
   displayImage(ui.elImg, data);
   history.replaceState({ viewerUrl: data.viewerUrl }, "", data.viewerUrl);
-  if (!fitHeight) window.scrollTo(0, 0);
+  if (!fitHeight) {
+    window.scrollTo(0, 0);
+  }
   log("rendered", data.counterText);
 }

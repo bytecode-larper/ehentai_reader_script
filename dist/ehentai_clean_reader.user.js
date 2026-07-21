@@ -619,7 +619,7 @@ function renderTitle(title) {
     <div class="title-meta-wrap trailing">${trailing}</div>
   `.trim();
 }
-function renderPage(ui, data, fitHeight, isInitial = false) {
+function renderPage(ui, data, fitHeight) {
   ui.elTitle.innerHTML = renderTitle(data.galleryTitle);
   ui.elCounter.textContent = data.counterText;
   ui.elFileInfo.textContent = data.fileInfo;
@@ -811,7 +811,7 @@ function init() {
   ui = injectShell(initData);
   zoom = new ZoomController(document.getElementById("reader"), ui.elImg, () => currentFitHeight);
   applyMode(currentFitHeight);
-  renderPage(ui, initData, currentFitHeight, true);
+  renderPage(ui, initData, currentFitHeight);
   prefetchBoth(initData);
   registerMenuCommands((newFit) => {
     currentFitHeight = newFit;

@@ -14,7 +14,7 @@ export class ZoomController {
   constructor(
     private container: HTMLElement,
     private img: HTMLImageElement,
-    private getFitHeight: () => boolean,
+    private getFitHeight: () => boolean
   ) {
     this.initEvents();
   }
@@ -23,7 +23,7 @@ export class ZoomController {
     this.container.addEventListener("mousedown", (e) => this.onMouseDown(e));
     window.addEventListener("mousemove", (e) => this.onMouseMove(e));
     window.addEventListener("mouseup", () => this.onMouseUp());
-    
+
     window.addEventListener(
       "wheel",
       (e) => {
@@ -32,7 +32,7 @@ export class ZoomController {
           this.updateZoom(e.deltaY < 0 ? 0.1 : -0.1, this.getFitHeight());
         }
       },
-      { passive: false },
+      { passive: false }
     );
   }
 
@@ -69,7 +69,9 @@ export class ZoomController {
       showToast(`ZOOM: ${Math.round(this.zoomLevel * 100)}%`);
     }
 
-    if (this.zoomSnapTimer !== null) window.clearTimeout(this.zoomSnapTimer);
+    if (this.zoomSnapTimer !== null) {
+      window.clearTimeout(this.zoomSnapTimer);
+    }
     if (this.zoomLevel < 1.0) {
       this.zoomSnapTimer = window.setTimeout(() => {
         this.reset();
@@ -87,8 +89,12 @@ export class ZoomController {
   }
 
   private onMouseDown(e: MouseEvent) {
-    if ((e.target as HTMLElement).closest("#hud, #page-info")) return;
-    if (!this.getFitHeight()) return;
+    if ((e.target as HTMLElement).closest("#hud, #page-info")) {
+      return;
+    }
+    if (!this.getFitHeight()) {
+      return;
+    }
 
     e.preventDefault();
     if (this.zoomLevel > 1.0) {

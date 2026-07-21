@@ -6,7 +6,7 @@ import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended"
 export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
-  eslintPluginPrettierRecommended, // <--- Add this last!
+  eslintPluginPrettierRecommended,
   {
     languageOptions: {
       globals: {
@@ -15,10 +15,10 @@ export default tseslint.config(
         GM_xmlhttpRequest: "readonly",
         GM_setValue: "readonly",
         GM_getValue: "readonly",
+        GM_registerMenuCommand: "readonly",
       },
     },
     rules: {
-      // You can still keep your custom logic rules here
       curly: ["error", "all"],
       "prettier/prettier": [
         "error",

@@ -1,6 +1,9 @@
 {
-  "name": "ehentai_reader",
+  "name": "ehentai-clean-reader",
+  "version": "2.3.1",
+  "description": "A modern, responsive, and customizable viewer for E-Hentai and ExHentai. Features include SPA-style navigation, advanced zooming, auto-hide cursor, and prefetching for a seamless reading experience.",
   "private": true,
+"type": "module",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/bun": "latest",
@@ -10,13 +13,15 @@
     "eslint-plugin-prettier": "^5.5.5",
     "globals": "^17.4.0",
     "prettier": "^3.8.1",
+    "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.1"
-  },
-  "peerDependencies": {
-    "typescript": "^5.9.3"
   },
   "scripts": {
     "build": "bun run build.ts",
-    "dev": "bun run build.ts --watch --serve"
+    "dev": "bun run build.ts --watch --serve",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write src/"
   }
 }

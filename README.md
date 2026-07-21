@@ -46,7 +46,10 @@ Supports both `e-hentai.org` and `exhentai.org`.
 ## Installation
 
 1. Install a userscript manager ([Violentmonkey](https://violentmonkey.github.io/) recommended).
-2. Install the script from `dist/ehentai_clean_reader.user.js` or via the local development URL.
+2. Install from one of these sources:
+   - **Stable:**  
+     `https://raw.githubusercontent.com/bytecode-larper/ehentai_reader_script/master/dist/ehentai_clean_reader.user.js`
+   - **Development:** Follow the [Development](#development) instructions below to run a local server.
 
 ---
 
@@ -58,6 +61,13 @@ Supports both `e-hentai.org` and `exhentai.org`.
 ### Setup
 ```bash
 bun install
+```
+
+### Static Checks
+```bash
+bun run typecheck   # TypeScript type checking
+bun run lint        # ESLint
+bun run format      # Prettier auto-format
 ```
 
 ### Unified Dev Workflow
@@ -83,3 +93,9 @@ bun run dev
 - **`src/ui.ts`**: DOM management, dynamic resizing, and HTML rendering.
 - **`src/network.ts`**: Fetching, prefetching, and `img.decode` optimization.
 - **`src/config.ts`**: Settings management via `GM_setValue/getValue` and menu registration.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
